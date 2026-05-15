@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Tuition Scheduler</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 16px;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { font-size: 28px; margin-bottom: 24px; color: #222; }
+        h2 { font-size: 18px; margin: 20px 0 12px; color: #333; }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            color: #1976d2;
+            border-bottom-color: #1976d2;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-group { margin-bottom: 16px; }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        input:focus, select:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.1); }
+
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background: #1565c0; }
+        button.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        button.secondary:hover { background: #d0d0d0; }
+        button.success-btn {
+            background: #388e3c;
+        }
+        button.success-btn:hover { background: #2e7d32; }
+
+        .student-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+        .student-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1976d2;
+        }
+        .student-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .student-actions button {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        .lesson-slots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .lesson-slot {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+        .lesson-slot-time {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1565c0;
+            margin-bottom: 4px;
+        }
+        .lesson-slot-day {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .lesson-slot-info {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 600px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .week-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+        .week-info {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            flex: 1;
+        }
+        .week-nav button {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .calendar-hint {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .day-column {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .day-header {
+            background: #f5f5f5;
+            padding: 12px 8px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .day-number {
+            display: block;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .day-name {
+            display: block;
+            font-size: 11px;
+            color: #999;
+        }
+
+        .day-content {
+            flex: 1;
+            padding: 8px;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+
+        .lesson-block {
+            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            user-select: none;
+        }
+        .lesson-block:hover { transform: scale(1.02); }
+
+        .lesson-block.attended {
+            background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
+        }
+        .lesson-block.cancelled {
+            background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+            opacity: 0.8;
+            text-decoration: line-through;
+        }
+
+        .lesson-time { font-weight: 600; margin-bottom: 2px; }
+        .lesson-student { font-size: 10px; opacity: 0.9; }
+        .lesson-revenue { font-size: 10px; opacity: 0.85; }
+        .lesson-status { font-size: 10px; margin-top: 3px; font-weight: 600; letter-spacing: 0.3px; }
+
+        .day-empty {
+            color: #ccc;
+            text-align: center;
+            padding: 40px 8px;
+            font-size: 24px;
+        }
+
+        .today {
+            background: #e3f2fd;
+            border: 1px solid #1976d2 !important;
+        }
+        .today .day-header { background: #bbdefb; font-weight: 700; }
+        .today .day-number { color: #1565c0; }
+
+        @media (max-width: 900px) {
+            .calendar-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .calendar-grid { grid-template-columns: repeat(2, 1fr); }
+            .student-header { flex-direction: column; }
+            .student-actions { margin-top: 12px; width: 100%; }
+            .student-actions button { flex: 1; }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h2 { margin: 0; font-size: 20px; }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+        }
+
+        .schedule-item {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .schedule-item-info { flex: 1; }
+        .schedule-item-day { font-weight: 600; color: #333; }
+        .schedule-item-time { font-size: 13px; color: #666; margin-top: 2px; }
+        .schedule-item-actions { display: flex; gap: 8px; }
+        .schedule-item-actions button { padding: 6px 10px; font-size: 11px; }
+
+        .success-msg {
+            background: #c8e6c9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .revenue-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-card {
+            background: #f5f5f5;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+        .stat-value { font-size: 18px; font-weight: 600; color: #1976d2; }
+
+        /* Analytics */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 600px) {
+            .analytics-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .attendance-bar-wrap {
+            background: #e0e0e0;
+            border-radius: 99px;
+            height: 8px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .attendance-bar {
+            height: 8px;
+            border-radius: 99px;
+            background: #388e3c;
+            transition: width 0.4s;
+        }
+        .attendance-bar.low { background: #c62828; }
+        .attendance-bar.mid { background: #f57c00; }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Weekly Tuition Scheduler</h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('students', event)">My Students</button>
+            <button class="tab-btn" onclick="switchTab('calendar', event)">Weekly Calendar</button>
+            <button class="tab-btn" onclick="switchTab('analytics', event)">Analytics</button>
+            <button class="tab-btn" onclick="switchTab('revenue', event)">Revenue</button>
+            <button class="tab-btn" onclick="switchTab('settings', event)">Settings</button>
+        </div>
+
+        <!-- STUDENTS TAB -->
+        <div id="students" class="tab-content active">
+            <div class="success-msg" id="successMsg"></div>
+
+            <h2>Add New Student</h2>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Student Name</label>
+                    <input type="text" id="studentName" placeholder="e.g., John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Subject</label>
+                    <input type="text" id="subject" placeholder="e.g., Math, English">
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Hourly Rate ($)</label>
+                    <input type="number" id="hourlyRate" value="50" min="0" step="5">
+                </div>
+                <div class="form-group">
+                    <label>Duration per Session (hours)</label>
+                    <input type="number" id="duration" value="1" min="0.5" step="0.5">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Notes (optional)</label>
+                <textarea id="notes" rows="2" placeholder="Any additional notes..."></textarea>
+            </div>
+
+            <h2 style="margin-top: 28px;">Select Weekly Schedule</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 12px;">Choose which days and times this student has lessons each week:</p>
+
+            <div id="scheduleSelector"></div>
+
+            <button onclick="addStudent()" style="margin-top: 20px;">Add Student with Schedule</button>
+
+            <h2 style="margin-top: 32px;">My Students</h2>
+            <div id="studentsList"></div>
+        </div>
+
+        <!-- CALENDAR TAB -->
+        <div id="calendar" class="tab-content">
+            <div class="week-nav">
+                <button class="secondary" onclick="previousWeek()">← Previous</button>
+                <div class="week-info">
+                    <span id="weekDisplay">Week of Jan 1, 2024</span>
+                </div>
+                <button class="secondary" onclick="nextWeek()">Next →</button>
+            </div>
+            <p class="calendar-hint">Click a lesson block to mark: <strong>Blue</strong> = Pending → <strong>Green</strong> = Attended → <strong>Red</strong> = Cancelled</p>
+            <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <!-- ANALYTICS TAB -->
+        <div id="analytics" class="tab-content">
+            <h2>Attendance Analytics</h2>
+            <div class="legend">
+                <span><span class="legend-dot" style="background:#388e3c"></span>Attended</span>
+                <span><span class="legend-dot" style="background:#c62828"></span>Cancelled</span>
+                <span><span class="legend-dot" style="background:#9e9e9e"></span>No record yet</span>
+            </div>
+            <div id="analyticsList"></div>
+        </div>
+
+        <!-- REVENUE TAB -->
+        <div id="revenue" class="tab-content">
+            <h2>Revenue Overview</h2>
+            <div id="revenueList"></div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div id="settings" class="tab-content">
+            <h2>Export</h2>
+            <div class="btn-row">
+                <button class="success-btn" onclick="exportToExcel()">📊 Export Sessions (Excel)</button>
+                <button onclick="exportData()">📥 Export Data (JSON)</button>
+            </div>
+            <p style="font-size: 12px; color: #999; margin-top: 8px;">Excel export includes all students' sessions for the current week with student name, date, day, hours, and cost per session.</p>
+
+            <h2 style="margin-top: 32px;">Import</h2>
+            <button onclick="document.getElementById('importFile').click()" class="secondary">📤 Import Data (JSON)</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+
+            <h2 style="margin-top: 32px;">Danger Zone</h2>
+            <button onclick="clearAllData()" class="secondary" style="background: #ffcdd2; color: #b71c1c;">🗑️ Clear All Data</button>
+        </div>
+    </div>
+
+    <!-- EDIT STUDENT MODAL -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Student Schedule</h2>
+                <button class="modal-close" onclick="closeModal('editModal')">×</button>
+            </div>
+            <div id="editContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'tuition_students';
+        const ATTENDANCE_KEY = 'tuition_attendance';
+
+        // DAYS array: index 0 = Monday, index 6 = Sunday
+        // This matches JS getDay() offset: Mon=1,Tue=2,...,Sun=0 in JS but 0..6 here
+        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const TIMES = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+        let currentWeekStart = getMonday(new Date());
+        let editingStudentId = null;
+
+        renderScheduleSelector();
+        renderStudents();
+        renderCalendar();
+
+        function getMonday(d) {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff));
+        }
+
+        // --- Attendance helpers ---
+        function getAttendance() {
+            return JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{}');
+        }
+        function saveAttendance(data) {
+            localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(data));
+        }
+        function attendanceKey(studentId, weekStartStr, dayIndex) {
+            return `${studentId}_${weekStartStr}_${dayIndex}`;
+        }
+        function toggleAttendance(studentId, weekStartStr, dayIndex) {
+            const data = getAttendance();
+            const key = attendanceKey(studentId, weekStartStr, dayIndex);
+            const current = data[key];
+            if (!current) {
+                data[key] = 'attended';
+            } else if (current === 'attended') {
+                data[key] = 'cancelled';
+            } else {
+                delete data[key];
+            }
+            saveAttendance(data);
+            renderCalendar();
+        }
+
+        function renderScheduleSelector() {
+            let html = '<div style="display: grid; gap: 12px;">';
+            DAYS.forEach((day, dayIndex) => {
+                html += `
+                    <div style="padding: 12px; background: #f9f9f9; border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" id="day_${dayIndex}" class="schedule-checkbox" onchange="updateTimeSelector(${dayIndex})">
+                            <label for="day_${dayIndex}" style="margin: 0; font-weight: 500; cursor: pointer;">${day}</label>
+                        </div>
+                        <div id="times_${dayIndex}" style="display: none;">
+                            <select id="time_${dayIndex}" style="width: 100%;">
+                                ${TIMES.map(time => `<option value="${time}">${time}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('scheduleSelector').innerHTML = html;
+        }
+
+        function updateTimeSelector(dayIndex) {
+            const checkbox = document.getElementById(`day_${dayIndex}`);
+            const timesDiv = document.getElementById(`times_${dayIndex}`);
+            timesDiv.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        function getSelectedSchedule() {
+            const schedule = [];
+            DAYS.forEach((day, dayIndex) => {
+                const checkbox = document.getElementById(`day_${dayIndex}`);
+                if (checkbox.checked) {
+                    const time = document.getElementById(`time_${dayIndex}`).value;
+                    schedule.push({ day: dayIndex, dayName: day, time });
+                }
+            });
+            return schedule;
+        }
+
+        function addStudent() {
+            const studentName = document.getElementById('studentName').value.trim();
+            const subject = document.getElementById('subject').value.trim();
+            const hourlyRate = parseFloat(document.getElementById('hourlyRate').value);
+            const duration = parseFloat(document.getElementById('duration').value);
+            const notes = document.getElementById('notes').value.trim();
+            const schedule = getSelectedSchedule();
+
+            if (!studentName || !subject || !hourlyRate || !duration || schedule.length === 0) {
+                alert('Please fill all fields and select at least one day');
+                return;
+            }
+
+            const student = {
+                id: Date.now(),
+                studentName,
+                subject,
+                hourlyRate,
+                duration,
+                notes,
+                schedule,
+                createdAt: new Date().toISOString()
+            };
+
+            const students = getStudents();
+            students.push(student);
+            saveStudents(students);
+
+            document.getElementById('studentName').value = '';
+            document.getElementById('subject').value = '';
+            document.getElementById('notes').value = '';
+            document.getElementById('duration').value = '1';
+            document.getElementById('hourlyRate').value = '50';
+            document.querySelectorAll('.schedule-checkbox').forEach(cb => {
+                cb.checked = false;
+                const dayIndex = cb.id.split('_')[1];
+                document.getElementById(`times_${dayIndex}`).style.display = 'none';
+            });
+
+            showSuccess('Student added successfully!');
+            renderStudents();
+            renderCalendar();
+        }
+
+        function editStudent(studentId) {
+            const students = getStudents();
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            editingStudentId = studentId;
+
+            let html = `
+                <div class="form-group">
+                    <label>Student Name</label>
+                    <input type="text" id="editStudentName" value="${student.studentName}">
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Hourly Rate ($)</label>
+                        <input type="number" id="editHourlyRate" value="${student.hourlyRate}" min="0" step="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (hours)</label>
+                        <input type="number" id="editDuration" value="${student.duration}" min="0.5" step="0.5">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="editNotes" rows="2">${student.notes}</textarea>
+                </div>
+                <h3 style="margin-top: 20px; margin-bottom: 12px;">Weekly Schedule</h3>
+                <div style="display: grid; gap: 12px;">
+            `;
+
+            DAYS.forEach((day, dayIndex) => {
+                const isSelected = student.schedule.some(s => s.day === dayIndex);
+                const selectedTime = isSelected ? student.schedule.find(s => s.day === dayIndex).time : '14:00';
+
+                html += `
+                    <div style="padding: 12px; background: #f9f9f9; border-radius: 6px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" id="edit_day_${dayIndex}" class="edit-schedule-checkbox" ${isSelected ? 'checked' : ''} onchange="updateEditTimeSelector(${dayIndex})">
+                            <label for="edit_day_${dayIndex}" style="margin: 0; font-weight: 500; cursor: pointer;">${day}</label>
+                        </div>
+                        <div id="edit_times_${dayIndex}" style="display: ${isSelected ? 'block' : 'none'};">
+                            <select id="edit_time_${dayIndex}">
+                                ${TIMES.map(time => `<option value="${time}" ${time === selectedTime ? 'selected' : ''}>${time}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 20px;">
+                    <button onclick="saveEditStudent()" style="flex: 1;">Save Changes</button>
+                    <button onclick="closeModal('editModal')" class="secondary" style="flex: 1;">Cancel</button>
+                </div>
+            `;
+
+            document.getElementById('editContent').innerHTML = html;
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function updateEditTimeSelector(dayIndex) {
+            const checkbox = document.getElementById(`edit_day_${dayIndex}`);
+            const timesDiv = document.getElementById(`edit_times_${dayIndex}`);
+            timesDiv.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        function saveEditStudent() {
+            const students = getStudents();
+            const student = students.find(s => s.id === editingStudentId);
+            if (!student) return;
+
+            student.studentName = document.getElementById('editStudentName').value.trim();
+            student.hourlyRate = parseFloat(document.getElementById('editHourlyRate').value);
+            student.duration = parseFloat(document.getElementById('editDuration').value);
+            student.notes = document.getElementById('editNotes').value.trim();
+
+            student.schedule = [];
+            DAYS.forEach((day, dayIndex) => {
+                const checkbox = document.getElementById(`edit_day_${dayIndex}`);
+                if (checkbox.checked) {
+                    const time = document.getElementById(`edit_time_${dayIndex}`).value;
+                    student.schedule.push({ day: dayIndex, dayName: day, time });
+                }
+            });
+
+            saveStudents(students);
+            closeModal('editModal');
+            showSuccess('Student updated successfully!');
+            renderStudents();
+            renderCalendar();
+        }
+
+        function deleteStudent(studentId) {
+            if (!confirm('Delete this student?')) return;
+            const students = getStudents().filter(s => s.id !== studentId);
+            saveStudents(students);
+            renderStudents();
+            renderCalendar();
+        }
+
+        function renderStudents() {
+            const students = getStudents();
+            const container = document.getElementById('studentsList');
+
+            if (students.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No students added yet. Add one above!</p></div>';
+                return;
+            }
+
+            container.innerHTML = students.map(student => {
+                const revenuePerWeek = Math.round(student.schedule.length * student.duration * student.hourlyRate * 100) / 100;
+                const revenuePerMonth = Math.round(revenuePerWeek * 4.33 * 100) / 100;
+
+                return `
+                    <div class="student-card">
+                        <div class="student-header">
+                            <div>
+                                <div class="student-name">${student.studentName}</div>
+                                <div style="font-size: 13px; color: #666; margin-top: 4px;">📖 ${student.subject}</div>
+                            </div>
+                            <div class="student-actions">
+                                <button onclick="editStudent(${student.id})">Edit</button>
+                                <button class="secondary" onclick="deleteStudent(${student.id})">Delete</button>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <p style="font-size: 12px; color: #999; margin-bottom: 8px;">Weekly Schedule:</p>
+                            <div class="lesson-slots">
+                                ${student.schedule.map(slot => `
+                                    <div class="lesson-slot">
+                                        <div class="lesson-slot-day">${slot.dayName}</div>
+                                        <div class="lesson-slot-time">${slot.time}</div>
+                                        <div class="lesson-slot-info">${student.duration}h @ $${student.hourlyRate}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="revenue-summary">
+                            <div class="stat-card">
+                                <div class="stat-label">Per Week</div>
+                                <div class="stat-value">$${revenuePerWeek.toFixed(2)}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Per Month (avg)</div>
+                                <div class="stat-value">$${revenuePerMonth.toFixed(2)}</div>
+                            </div>
+                        </div>
+
+                        ${student.notes ? `<div style="font-size: 12px; color: #666; margin-top: 12px;">💬 ${student.notes}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCalendar() {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+
+            const weekStartStr = currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const weekEndStr = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            document.getElementById('weekDisplay').textContent = `Week of ${weekStartStr} – ${weekEndStr}`;
+
+            const students = getStudents();
+            const attendance = getAttendance();
+            // weekStartKey used for attendance record keys
+            const weekStartKey = currentWeekStart.toISOString().split('T')[0];
+
+            // weekLessons keyed by DAYS index (0=Monday ... 6=Sunday)
+            const weekLessons = {};
+            for (let i = 0; i < 7; i++) weekLessons[i] = [];
+
+            students.forEach(student => {
+                student.schedule.forEach(slot => {
+                    weekLessons[slot.day].push({
+                        studentId: student.id,
+                        studentName: student.studentName,
+                        subject: student.subject,
+                        time: slot.time,
+                        duration: student.duration,
+                        revenue: Math.round(student.duration * student.hourlyRate * 100) / 100
+                    });
+                });
+            });
+
+            Object.keys(weekLessons).forEach(day => {
+                weekLessons[day].sort((a, b) => a.time.localeCompare(b.time));
+            });
+
+            // Calendar displays Mon–Sun (i=0 is Monday, i=6 is Sunday)
+            // currentWeekStart is always a Monday, so dayDate for column i = Mon + i days
+            const jsDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            let html = '';
+
+            for (let i = 0; i < 7; i++) {
+                const dayDate = new Date(currentWeekStart);
+                dayDate.setDate(dayDate.getDate() + i);
+                const isToday = dayDate.toDateString() === new Date().toDateString();
+
+                const dayNum = dayDate.getDate();
+                const dayName = jsDayNames[dayDate.getDay()]; // correct label from JS date
+                // FIX: use column index i (DAYS index) to look up lessons, NOT dayDate.getDay() (JS index)
+                const dayLessons = weekLessons[i] || [];
+
+                const lessonsHtml = dayLessons.length > 0
+                    ? dayLessons.map(lesson => {
+                        const key = attendanceKey(lesson.studentId, weekStartKey, i);
+                        const status = attendance[key];
+                        const statusClass = status === 'attended' ? 'attended' : status === 'cancelled' ? 'cancelled' : '';
+                        const statusLabel = status === 'attended' ? '✓ Attended' : status === 'cancelled' ? '✗ Cancelled' : '● Pending';
+                        return `
+                            <div class="lesson-block ${statusClass}" onclick="toggleAttendance(${lesson.studentId}, '${weekStartKey}', ${i})">
+                                <div class="lesson-time">${lesson.time}</div>
+                                <div class="lesson-student">${lesson.studentName}</div>
+                                <div class="lesson-revenue">${lesson.duration}h · $${lesson.revenue.toFixed(2)}</div>
+                                <div class="lesson-status">${statusLabel}</div>
+                            </div>
+                        `;
+                    }).join('')
+                    : '<div class="day-empty">—</div>';
+
+                html += `
+                    <div class="day-column ${isToday ? 'today' : ''}">
+                        <div class="day-header">
+                            <span class="day-number">${dayNum}</span>
+                            <span class="day-name">${dayName}</span>
+                        </div>
+                        <div class="day-content">${lessonsHtml}</div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('calendarGrid').innerHTML = html;
+        }
+
+        function renderAnalytics() {
+            const students = getStudents();
+            const attendance = getAttendance();
+            const container = document.getElementById('analyticsList');
+
+            if (students.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><p>No students yet.</p></div>';
+                return;
+            }
+
+            // Count all attendance records per student
+            const counts = {};
+            students.forEach(s => {
+                counts[s.id] = { attended: 0, cancelled: 0 };
+            });
+
+            Object.entries(attendance).forEach(([key, status]) => {
+                const studentId = parseInt(key.split('_')[0]);
+                if (counts[studentId]) {
+                    if (status === 'attended') counts[studentId].attended++;
+                    else if (status === 'cancelled') counts[studentId].cancelled++;
+                }
+            });
+
+            let html = '';
+            students.forEach(student => {
+                const { attended, cancelled } = counts[student.id];
+                const total = attended + cancelled;
+                const rate = total > 0 ? Math.round((attended / total) * 100) : null;
+                const barClass = rate === null ? '' : rate >= 80 ? '' : rate >= 50 ? 'mid' : 'low';
+                const rateDisplay = rate === null ? 'No sessions recorded yet' : `${rate}% attendance rate`;
+                const sessionsPerWeek = student.schedule.length;
+
+                html += `
+                    <div class="student-card">
+                        <div class="student-header" style="margin-bottom: 12px;">
+                            <div>
+                                <div class="student-name">${student.studentName}</div>
+                                <div style="font-size: 13px; color: #666;">📖 ${student.subject} · ${sessionsPerWeek} session${sessionsPerWeek !== 1 ? 's' : ''}/week</div>
+                            </div>
+                        </div>
+                        <div class="analytics-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">Attended</div>
+                                <div class="stat-value" style="color: #388e3c;">${attended}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Cancelled</div>
+                                <div class="stat-value" style="color: #c62828;">${cancelled}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Total Recorded</div>
+                                <div class="stat-value" style="color: #555;">${total}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 4px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-bottom: 4px;">
+                                <span>${rateDisplay}</span>
+                                ${rate !== null ? `<span>${attended}/${total}</span>` : ''}
+                            </div>
+                            <div class="attendance-bar-wrap">
+                                <div class="attendance-bar ${barClass}" style="width: ${rate !== null ? rate : 0}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderRevenue() {
+            const students = getStudents();
+            let html = '';
+            let totalWeekly = 0;
+            let totalMonthly = 0;
+
+            students.forEach(student => {
+                const revenuePerWeek = Math.round(student.schedule.length * student.duration * student.hourlyRate * 100) / 100;
+                const revenuePerMonth = Math.round(revenuePerWeek * 4.33 * 100) / 100;
+                totalWeekly += revenuePerWeek;
+                totalMonthly += revenuePerMonth;
+            });
+
+            html += `
+                <div class="student-card">
+                    <h3 style="margin-bottom: 16px;">Total Revenue</h3>
+                    <div class="revenue-summary">
+                        <div class="stat-card">
+                            <div class="stat-label">Per Week</div>
+                            <div class="stat-value">$${totalWeekly.toFixed(2)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Per Month (avg)</div>
+                            <div class="stat-value">$${totalMonthly.toFixed(2)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (students.length > 0) {
+                html += '<h3 style="margin-top: 24px; margin-bottom: 12px;">By Student</h3>';
+                students.forEach(student => {
+                    const revenuePerWeek = Math.round(student.schedule.length * student.duration * student.hourlyRate * 100) / 100;
+                    const revenuePerMonth = Math.round(revenuePerWeek * 4.33 * 100) / 100;
+                    html += `
+                        <div class="student-card">
+                            <div class="student-name">${student.studentName}</div>
+                            <div style="font-size: 13px; color: #666; margin-bottom: 12px;">📖 ${student.subject}</div>
+                            <div class="revenue-summary">
+                                <div class="stat-card">
+                                    <div class="stat-label">Per Week</div>
+                                    <div class="stat-value">$${revenuePerWeek.toFixed(2)}</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">Per Month</div>
+                                    <div class="stat-value">$${revenuePerMonth.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="empty-state"><div class="empty-state-icon">📊</div><p>No students yet. Add students to see revenue data.</p></div>';
+            }
+
+            document.getElementById('revenueList').innerHTML = html;
+        }
+
+        function exportToExcel() {
+            const students = getStudents();
+            if (students.length === 0) {
+                alert('No students to export.');
+                return;
+            }
+
+            const rows = [['Student Name', 'Subject', 'Date', 'Day', 'Hours', 'Rate ($/hr)', 'Cost per Session ($)']];
+
+            students.forEach(student => {
+                student.schedule.forEach(slot => {
+                    // slot.day is DAYS index: 0=Monday, 6=Sunday
+                    // currentWeekStart is Monday, so add slot.day days to get the correct date
+                    const sessionDate = new Date(currentWeekStart);
+                    sessionDate.setDate(sessionDate.getDate() + slot.day);
+
+                    const dateStr = sessionDate.toLocaleDateString('en-SG', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const cost = student.duration * student.hourlyRate;
+
+                    rows.push([
+                        student.studentName,
+                        student.subject,
+                        dateStr,
+                        slot.dayName,
+                        student.duration,
+                        student.hourlyRate,
+                        parseFloat(cost.toFixed(2))
+                    ]);
+                });
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+
+            // Column widths
+            ws['!cols'] = [
+                { wch: 20 }, { wch: 14 }, { wch: 14 },
+                { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+
+            const weekLabel = currentWeekStart.toISOString().split('T')[0];
+            XLSX.writeFile(wb, `tuition_sessions_${weekLabel}.xlsx`);
+        }
+
+        function previousWeek() {
+            currentWeekStart = new Date(currentWeekStart);
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            renderCalendar();
+        }
+
+        function nextWeek() {
+            currentWeekStart = new Date(currentWeekStart);
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            renderCalendar();
+        }
+
+        function switchTab(tab, event) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            if (event && event.target) event.target.classList.add('active');
+
+            if (tab === 'revenue') renderRevenue();
+            if (tab === 'calendar') renderCalendar();
+            if (tab === 'analytics') renderAnalytics();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showSuccess(msg) {
+            const el = document.getElementById('successMsg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+
+        function getStudents() {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        }
+
+        function saveStudents(students) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+        }
+
+        function exportData() {
+            const data = {
+                students: getStudents(),
+                attendance: getAttendance(),
+                exportedAt: new Date().toISOString()
+            };
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tuition_data_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.students) {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.students));
+                        if (data.attendance) {
+                            localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(data.attendance));
+                        }
+                        alert('Data imported successfully!');
+                        location.reload();
+                    } else {
+                        alert('Invalid data format');
+                    }
+                } catch (err) {
+                    alert('Error reading file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function clearAllData() {
+            if (!confirm('⚠️ This will delete ALL your data. Are you sure?')) return;
+            if (!confirm('Really? This cannot be undone!')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(ATTENDANCE_KEY);
+            alert('All data cleared');
+            location.reload();
+        }
+    </script>
+</body>
+</html>
