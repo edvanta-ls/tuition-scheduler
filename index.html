@@ -328,16 +328,22 @@ auth.onAuthStateChanged(user => {
     }
 });
 
+function isAnalyticsActive() {
+    return document.getElementById('analytics').classList.contains('active');
+}
+
 function setupListeners() {
     db.collection('users').doc(currentUser.uid).collection('students').onSnapshot(snap => {
         students = snap.docs.map(d => d.data());
         renderStudents();
         renderCalendar();
+        if (isAnalyticsActive()) renderAnalytics();
     });
 
     db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').onSnapshot(snap => {
         attendanceRecords = snap.exists ? (snap.data().records || {}) : {};
         renderCalendar();
+        if (isAnalyticsActive()) renderAnalytics();
     });
 
     db.collection('users').doc(currentUser.uid).collection('session_data').doc('overrides').onSnapshot(snap => {
@@ -348,6 +354,7 @@ function setupListeners() {
     db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').onSnapshot(snap => {
         oneOffLessons = snap.exists ? (snap.data().lessons || {}) : {};
         renderCalendar();
+        if (isAnalyticsActive()) renderAnalytics();
     });
 }
 
@@ -581,9 +588,19 @@ function renderCalendar() {
     const weekLessons = Array(7).fill(null).map(() => []);
     students.forEach(s => {
         s.schedule.forEach(slot => {
-            weekLessons[slot.day].push({
+            const key = `${s.id}_${weekStartKey}_${slot.day}`;
+            const ovr = sessionData[key] || {};
+            let renderDay = slot.day;
+            if (ovr.rescheduleDate) {
+                const rd = new Date(ovr.rescheduleDate + 'T00:00:00');
+                const diff = Math.round((rd - currentWeekStart) / 86400000);
+                if (diff >= 0 && diff < 7) renderDay = diff;
+                else return; // moved to a different week — skip this week
+            }
+            weekLessons[renderDay].push({
                 isOneOff: false,
                 studentId: s.id,
+                origDayIndex: slot.day,
                 studentName: s.studentName,
                 subject: slot.subject || s.subject,
                 time: slot.time,
@@ -636,12 +653,12 @@ function renderCalendar() {
                 status = lesson.oneOffStatus;
                 onclick = `window.openOneOffEditModal('${lesson.oneOffId}')`;
             } else {
-                const key = `${lesson.studentId}_${weekStartKey}_${i}`;
+                const key = `${lesson.studentId}_${weekStartKey}_${lesson.origDayIndex}`;
                 status = attendanceRecords[key];
                 const ovr = sessionData[key];
                 displaySubject = (ovr && ovr.subject) ? ovr.subject : lesson.subject;
                 displayTime = (ovr && ovr.time) ? ovr.time : lesson.time;
-                onclick = `window.openLessonModal(${lesson.studentId},'${weekStartKey}',${i})`;
+                onclick = `window.openLessonModal(${lesson.studentId},'${weekStartKey}',${lesson.origDayIndex})`;
             }
             const [lh, lmins] = displayTime.split(':').map(Number);
             const hourOffset = lh === 0 ? 24 : lh;
@@ -703,47 +720,40 @@ function updateCalendarRevenueSummary() {
             projectedMonthly += s.duration * s.hourlyRate * dayCount[jsDay];
         });
     });
+    // Include one-off lessons in projected (they're in the calendar regardless of status)
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() === month && olDate.getFullYear() === year) {
+            projectedMonthly += ol.duration * ol.hourlyRate;
+        }
+    });
 
-    // Revenue to date: all past sessions in this month not explicitly cancelled
-    // (pending/unrecorded past sessions count as earned; only cancellations are excluded)
-    const today = new Date();
-    const todayYear = today.getFullYear(), todayMonth = today.getMonth(), todayDay = today.getDate();
-    let cutoffDay;
-    if (year < todayYear || (year === todayYear && month < todayMonth)) {
-        cutoffDay = daysInMonth;
-    } else if (year === todayYear && month === todayMonth) {
-        cutoffDay = todayDay;
-    } else {
-        cutoffDay = 0;
-    }
-
-    let revenueToDate = 0, sessionsDone = 0, cancelledCount = 0;
-    students.forEach(s => {
-        s.schedule.forEach(slot => {
-            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
-            for (let d = 1; d <= cutoffDay; d++) {
-                if (new Date(year, month, d).getDay() !== jsDay) continue;
-                const wkStart = getMonday(new Date(year, month, d));
-                const wkKey = wkStart.toISOString().split('T')[0];
-                const status = attendanceRecords[`${s.id}_${wkKey}_${slot.day}`];
-                if (status === 'cancelled') {
-                    cancelledCount++;
-                } else {
-                    revenueToDate += s.duration * s.hourlyRate;
-                    sessionsDone++;
-                }
-            }
-        });
+    // Revenue earned: only explicitly attended sessions in this month
+    let revenueToDate = 0, attendedCount = 0, cancelledCount = 0;
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        if (parts.length < 3) return;
+        const sid = parts[0], dateStr = parts[1], dayIdx = parts[2];
+        const wkStart = new Date(dateStr + 'T00:00:00');
+        const recordDate = new Date(wkStart);
+        recordDate.setDate(recordDate.getDate() + parseInt(dayIdx));
+        if (recordDate.getMonth() !== month || recordDate.getFullYear() !== year) return;
+        const student = students.find(s => s.id === parseInt(sid));
+        if (!student) return;
+        const schedule = student.schedule.find(sc => sc.day === parseInt(dayIdx));
+        if (!schedule) return;
+        if (status === 'attended') { revenueToDate += student.duration * student.hourlyRate; attendedCount++; }
+        else if (status === 'cancelled') { cancelledCount++; }
     });
 
     const percent = projectedMonthly > 0 ? Math.round((revenueToDate / projectedMonthly) * 100) : 0;
 
     const labelEl = document.getElementById('calRevLabel');
-    if (labelEl) labelEl.textContent = `${monthName} Revenue to Date`;
+    if (labelEl) labelEl.textContent = `${monthName} Revenue Earned`;
     const noteEl = document.getElementById('calRevNote');
-    if (noteEl) noteEl.textContent = sessionsDone > 0
-        ? `${sessionsDone} session${sessionsDone > 1 ? 's' : ''}${cancelledCount ? ` · ${cancelledCount} cancelled` : ''}`
-        : cutoffDay > 0 ? 'No sessions yet' : '';
+    if (noteEl) noteEl.textContent = (attendedCount || cancelledCount)
+        ? `${attendedCount} attended · ${cancelledCount} cancelled`
+        : 'Mark sessions ✓ Attended to track revenue';
 
     document.getElementById('calendarRevenueToDate').textContent = `$${revenueToDate.toFixed(2)}`;
     document.getElementById('calendarProjectedMonthly').textContent = `$${projectedMonthly.toFixed(2)}`;
@@ -796,9 +806,15 @@ function buildLessonBody({ meta, status, subject, note, time, saveFunc, cancelFu
                 ${ab('lmbtn_cancelled','✗ Cancelled',status==='cancelled','#c62828')}
             </div>
         </div>
-        <div class="form-group">
-            <label>Time <span style="font-size:11px;color:#aaa;font-weight:400;">(this session only)</span></label>
-            <select id="lm_time">${TIMES.map(t=>`<option value="${t}"${t===time?' selected':''}>${t}</option>`).join('')}</select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+                <label>Date <span style="font-size:11px;color:#aaa;font-weight:400;">(reschedule)</span></label>
+                <input type="date" id="lm_date" value="${date}" style="padding:8px 10px;">
+            </div>
+            <div class="form-group">
+                <label>Time <span style="font-size:11px;color:#aaa;font-weight:400;">(this session)</span></label>
+                <select id="lm_time">${TIMES.map(t=>`<option value="${t}"${t===time?' selected':''}>${t}</option>`).join('')}</select>
+            </div>
         </div>
         <div class="form-group">
             <label>Subject <span style="font-size:11px;color:#aaa;font-weight:400;">(this session only)</span></label>
@@ -825,16 +841,18 @@ window.openLessonModal = function(studentId, weekStartKey, dayIndex) {
     const sd = sessionData[key] || {};
     const subject = sd.subject || slot.subject || student.subject;
     const note = sd.note || '';
-    const sessionTime = (sd.time) ? sd.time : slot.time;
-    const endTime = calcEndTime(sessionTime, student.duration);
+    const sessionTime = sd.time || slot.time;
     const lessonDate = new Date(weekStartKey + 'T00:00:00');
     lessonDate.setDate(lessonDate.getDate() + dayIndex);
-    const dateStr = lessonDate.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-    _lm = { type: 'recurring', key, status, slotTime: slot.time };
+    const origDateKey = lessonDate.toISOString().split('T')[0];
+    const sessionDateKey = sd.rescheduleDate || origDateKey;
+    const endTime = calcEndTime(sessionTime, student.duration);
+    const dateStr = new Date(sessionDateKey + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    _lm = { type: 'recurring', key, status, slotTime: slot.time, origDate: origDateKey };
     document.getElementById('lm_title').textContent = student.studentName;
     document.getElementById('lm_body').innerHTML = buildLessonBody({
         meta: `${dateStr} · ${sessionTime}–${endTime} · $${(student.duration * student.hourlyRate).toFixed(2)}`,
-        status, subject, note, time: sessionTime,
+        status, subject, note, time: sessionTime, date: sessionDateKey,
         saveFunc: 'window.saveLessonModal()',
         cancelFunc: 'window.closeLessonModal()'
     });
@@ -854,13 +872,17 @@ window.saveLessonModal = async function() {
     const subject = document.getElementById('lm_subject').value.trim();
     const note = document.getElementById('lm_note').value.trim();
     const time = document.getElementById('lm_time').value;
-    const { key, status, slotTime } = _lm;
+    const date = document.getElementById('lm_date').value;
+    const { key, status, slotTime, origDate } = _lm;
     const updAtt = { ...attendanceRecords };
     if (!status) delete updAtt[key]; else updAtt[key] = status;
     const updSd = { ...sessionData };
     const timeChanged = time !== slotTime;
-    if (subject || note || timeChanged) {
-        updSd[key] = { subject, note, ...(timeChanged ? { time } : {}) };
+    const dateChanged = date !== origDate;
+    if (subject || note || timeChanged || dateChanged) {
+        updSd[key] = { subject, note,
+            ...(timeChanged ? { time } : {}),
+            ...(dateChanged ? { rescheduleDate: date } : {}) };
     } else {
         delete updSd[key];
     }
@@ -953,14 +975,13 @@ window.saveOneOff = async function() {
 window.openOneOffEditModal = function(id) {
     const lesson = oneOffLessons[id];
     if (!lesson) return;
-    _lm = { type: 'oneoff', id, status: lesson.status };
+    _lm = { type: 'oneoff', id, status: lesson.status, origDate: lesson.dateKey };
     const endTime = calcEndTime(lesson.time, lesson.duration);
-    const date = new Date(lesson.dateKey + 'T00:00:00');
-    const dateStr = date.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const dateStr = new Date(lesson.dateKey + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     document.getElementById('lm_title').textContent = lesson.studentName + ' ★';
     document.getElementById('lm_body').innerHTML = buildLessonBody({
         meta: `${dateStr} · ${lesson.time}–${endTime} · $${(lesson.duration * lesson.hourlyRate).toFixed(2)} · one-off`,
-        status: lesson.status, subject: lesson.subject, note: lesson.note || '', time: lesson.time,
+        status: lesson.status, subject: lesson.subject, note: lesson.note || '', time: lesson.time, date: lesson.dateKey,
         saveFunc: 'window.saveOneOffEdit()',
         cancelFunc: 'window.closeLessonModal()',
         deleteFunc: `window.deleteOneOff('${id}')`
@@ -972,8 +993,9 @@ window.saveOneOffEdit = async function() {
     const subject = document.getElementById('lm_subject').value.trim();
     const note = document.getElementById('lm_note').value.trim();
     const time = document.getElementById('lm_time').value;
+    const date = document.getElementById('lm_date').value;
     const { id, status } = _lm;
-    const updated = { ...oneOffLessons, [id]: { ...oneOffLessons[id], status, subject, note, time } };
+    const updated = { ...oneOffLessons, [id]: { ...oneOffLessons[id], status, subject, note, time, dateKey: date || oneOffLessons[id].dateKey } };
     try {
         await db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').set({ lessons: updated });
         window.closeLessonModal();
@@ -1040,6 +1062,12 @@ function renderAnalytics() {
             const jsDay = slot.day === 6 ? 0 : slot.day + 1;
             totalProjected += s.duration * s.hourlyRate * dayCount[jsDay];
         });
+    });
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() === month && olDate.getFullYear() === year) {
+            totalProjected += ol.duration * ol.hourlyRate;
+        }
     });
 
     Object.entries(attendanceRecords).forEach(([key, status]) => {
