@@ -437,6 +437,10 @@ function calcEndTime(startTime, durationHours) {
     return `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
 }
 
+function toLocalDateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function renderStudents() {
     if (students.length === 0) {
         document.getElementById('studentsList').innerHTML = '<div class="empty-state">No students yet</div>';
@@ -606,7 +610,8 @@ function renderCalendar() {
                 subject: slot.subject || s.subject,
                 time: slot.time,
                 duration: s.duration,
-                revenue: (s.duration * s.hourlyRate).toFixed(2)
+                revenue: (s.duration * s.hourlyRate).toFixed(2),
+                status: attendanceRecords[key] || null
             });
         });
     });
@@ -620,7 +625,7 @@ function renderCalendar() {
                 subject: ol.subject, time: ol.time,
                 duration: ol.duration,
                 revenue: (ol.duration * ol.hourlyRate).toFixed(2),
-                oneOffStatus: ol.status
+                status: ol.status || null
             });
         }
     });
@@ -651,12 +656,12 @@ function renderCalendar() {
             if (lesson.isOneOff) {
                 displayTime = lesson.time;
                 displaySubject = lesson.subject;
-                status = lesson.oneOffStatus;
+                status = lesson.status;
                 onclick = `window.openOneOffEditModal('${lesson.oneOffId}')`;
             } else {
                 const key = `${lesson.studentId}_${weekStartKey}_${lesson.origDayIndex}`;
-                status = attendanceRecords[key];
                 const ovr = sessionData[key];
+                status = lesson.status;
                 displaySubject = (ovr && ovr.subject) ? ovr.subject : lesson.subject;
                 displayTime = (ovr && ovr.time) ? ovr.time : lesson.time;
                 onclick = `window.openLessonModal(${lesson.studentId},'${weekStartKey}',${lesson.origDayIndex})`;
@@ -676,8 +681,8 @@ function renderCalendar() {
             </div>`;
         });
 
-        const dayRevenue = dayLessons.reduce((sum, l) => sum + parseFloat(l.revenue), 0);
-        const dayDateKey = dayDate.toISOString().split('T')[0];
+        const dayRevenue = dayLessons.reduce((sum, l) => l.status === 'cancelled' ? sum : sum + parseFloat(l.revenue), 0);
+        const dayDateKey = toLocalDateKey(dayDate);
         daysHtml += `<div class="tg-day ${isToday ? 'tg-today' : ''}">
             <div class="tg-day-header">
                 <span class="tg-day-num">${dayDate.getDate()}</span>
@@ -745,6 +750,14 @@ function updateCalendarRevenueSummary() {
         if (!schedule) return;
         if (status === 'attended') { revenueToDate += student.duration * student.hourlyRate; attendedCount++; }
         else if (status === 'cancelled') { cancelledCount++; }
+    });
+
+    // Also count one-off (ad-hoc) lessons
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+        if (ol.status === 'attended')      { revenueToDate += ol.duration * ol.hourlyRate; attendedCount++; }
+        else if (ol.status === 'cancelled') { cancelledCount++; }
     });
 
     const percent = projectedMonthly > 0 ? Math.round((revenueToDate / projectedMonthly) * 100) : 0;
@@ -1049,6 +1062,16 @@ function renderAnalytics() {
             else if (status === 'cancelled') { wkCancelled++; wkLost   += rev; }
         });
     });
+    // Include one-off lessons in this week
+    const thisWeekEnd = new Date(thisWeekStart); thisWeekEnd.setDate(thisWeekEnd.getDate() + 7);
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate < thisWeekStart || olDate >= thisWeekEnd) return;
+        const rev = ol.duration * ol.hourlyRate;
+        wkScheduled++; wkPotential += rev;
+        if (ol.status === 'attended')      { wkAttended++;  wkEarned += rev; }
+        else if (ol.status === 'cancelled') { wkCancelled++; wkLost   += rev; }
+    });
     const wkPending  = wkScheduled - wkAttended - wkCancelled;
     const wkMarked   = wkAttended + wkCancelled;
     const wkAttRate  = wkMarked > 0 ? Math.round((wkAttended / wkMarked) * 100) : null;
@@ -1088,6 +1111,27 @@ function renderAnalytics() {
                 }
             }
         }
+    });
+    // One-off lessons in monthly totals
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+        const rev = ol.duration * ol.hourlyRate;
+        if (ol.status === 'attended')      { moAttended++;  moEarned += rev; }
+        else if (ol.status === 'cancelled') { moCancelled++; moLost   += rev; }
+    });
+    // Rescheduled sessions this month
+    let moRescheduled = 0;
+    Object.entries(sessionData).forEach(([key, data]) => {
+        if (!data.rescheduleDate) return;
+        const parts = key.split('_');
+        if (parts.length < 3) return;
+        const wkStart = new Date(parts[1] + 'T00:00:00');
+        const origDate = new Date(wkStart);
+        origDate.setDate(origDate.getDate() + parseInt(parts[2]));
+        if (origDate.getMonth() !== month || origDate.getFullYear() !== year) return;
+        const student = students.find(s => s.id === parseInt(parts[0]));
+        if (student) moRescheduled++;
     });
 
     const moMarked   = moAttended + moCancelled;
@@ -1149,6 +1193,7 @@ function renderAnalytics() {
         <div class="student-card"><div class="stat-label">Sessions Cancelled</div><div class="stat-value" style="color:#c62828;">${moCancelled}</div></div>
         <div class="student-card"><div class="stat-label">Attendance Rate</div><div class="stat-value" style="color:${moAttRate !== null ? rateColor(moAttRate) : '#999'};">${moAttRate !== null ? moAttRate + '%' : '—'}</div></div>
         <div class="student-card"><div class="stat-label">% Revenue Achieved</div><div class="stat-value" style="color:#388e3c;">${moRevPct}%</div></div>
+        <div class="student-card"><div class="stat-label">Rescheduled</div><div class="stat-value" style="color:#f57c00;">${moRescheduled}</div></div>
     </div>
 
     <div class="student-card" style="margin-bottom:4px;">
@@ -1185,16 +1230,22 @@ function renderAnalytics() {
         }, 0);
 
         // This week — per student
-        let sWkAtt = 0, sWkCanc = 0, sWkPend = 0;
+        let sWkAtt = 0, sWkCanc = 0, sWkPend = 0, sWkOneOff = 0;
         s.schedule.forEach(slot => {
             const status = attendanceRecords[`${s.id}_${thisWeekKey}_${slot.day}`];
             if (status === 'attended') sWkAtt++;
             else if (status === 'cancelled') sWkCanc++;
             else sWkPend++;
         });
+        Object.values(oneOffLessons).forEach(ol => {
+            if (ol.studentId !== s.id) return;
+            const olDate = new Date(ol.dateKey + 'T00:00:00');
+            const wkEnd = new Date(thisWeekStart); wkEnd.setDate(wkEnd.getDate() + 7);
+            if (olDate >= thisWeekStart && olDate < wkEnd) sWkOneOff++;
+        });
 
-        // This month — per student
-        let sAtt = 0, sCanc = 0, sEarned = 0, sLost = 0;
+        // This month — per student (regular sessions)
+        let sAtt = 0, sCanc = 0, sEarned = 0, sLost = 0, sRescheduled = 0, sOneOff = 0;
         Object.entries(attendanceRecords).forEach(([key, status]) => {
             const parts = key.split('_');
             if (parts[0] !== String(s.id)) return;
@@ -1202,9 +1253,32 @@ function renderAnalytics() {
             const rec = new Date(wkStart);
             rec.setDate(rec.getDate() + parseInt(parts[2]));
             if (rec.getMonth() !== month || rec.getFullYear() !== year) return;
+            const sch = s.schedule.find(sc => sc.day === parseInt(parts[2]));
+            if (!sch) return;
             const rev = s.duration * s.hourlyRate;
             if (status === 'attended')      { sAtt++;  sEarned += rev; }
             else if (status === 'cancelled') { sCanc++; sLost   += rev; }
+        });
+        // One-off lessons for this student this month
+        Object.values(oneOffLessons).forEach(ol => {
+            if (ol.studentId !== s.id) return;
+            const olDate = new Date(ol.dateKey + 'T00:00:00');
+            if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+            sOneOff++;
+            const rev = ol.duration * ol.hourlyRate;
+            if (ol.status === 'attended')      { sAtt++;  sEarned += rev; }
+            else if (ol.status === 'cancelled') { sCanc++; sLost   += rev; }
+        });
+        // Rescheduled sessions this month
+        Object.entries(sessionData).forEach(([key, data]) => {
+            if (!data.rescheduleDate) return;
+            const parts = key.split('_');
+            if (parts[0] !== String(s.id)) return;
+            const wkStart = new Date(parts[1] + 'T00:00:00');
+            const origDate = new Date(wkStart);
+            origDate.setDate(origDate.getDate() + parseInt(parts[2]));
+            if (origDate.getMonth() !== month || origDate.getFullYear() !== year) return;
+            sRescheduled++;
         });
 
         const sMarked  = sAtt + sCanc;
@@ -1231,6 +1305,7 @@ function renderAnalytics() {
                 <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sWkCanc}</div></div>
                 <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${sWkPend}</div></div>
             </div>
+            ${sWkOneOff > 0 ? `<div style="font-size:11px;color:#1976d2;margin-top:4px;">+ ${sWkOneOff} ad-hoc session${sWkOneOff>1?'s':''} this week</div>` : ''}
 
             ${sectionLabel(monthName + ' ' + year)}
             <div class="revenue-summary" style="margin-top:0;">
@@ -1240,6 +1315,8 @@ function renderAnalytics() {
                 <div class="stat-card"><div class="stat-label">Lost (cancelled)</div><div class="stat-value" style="color:#c62828;">$${sLost.toFixed(2)}</div></div>
                 <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sAtt} sessions</div></div>
                 <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sCanc} sessions</div></div>
+                <div class="stat-card"><div class="stat-label">Rescheduled</div><div class="stat-value" style="color:#f57c00;">${sRescheduled}</div></div>
+                <div class="stat-card"><div class="stat-label">Ad-hoc</div><div class="stat-value" style="color:#1976d2;">${sOneOff} sessions</div></div>
             </div>
 
             ${sAttRate !== null ? `<div style="margin-top:12px;">
