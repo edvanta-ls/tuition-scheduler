@@ -232,7 +232,7 @@ let attendanceRecords = {};
 let currentWeekStart = getMonday(new Date());
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const TIMES = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
+const TIMES = (()=>{const t=[];for(let h=8;h<=23;h++){['00','15','30','45'].forEach(m=>{t.push(`${String(h).padStart(2,'0')}:${m}`);});}t.push('00:00');return t;})();
 
 // FUNCTIONS
 function getMonday(d) {
@@ -399,7 +399,7 @@ function renderCalendar() {
 
     const weekStartKey = currentWeekStart.toISOString().split('T')[0];
     const START_HOUR = 8;
-    const END_HOUR = 21;
+    const END_HOUR = 24;
     const HOUR_PX = 60;
     const TOTAL_HOURS = END_HOUR - START_HOUR;
 
@@ -418,7 +418,7 @@ function renderCalendar() {
 
     let labelsHtml = '<div class="tg-label-header"></div>';
     for (let h = START_HOUR; h <= END_HOUR; h++) {
-        labelsHtml += `<div class="tg-label">${String(h).padStart(2,'0')}:00</div>`;
+        labelsHtml += `<div class="tg-label">${h === 24 ? '00' : String(h).padStart(2,'0')}:00</div>`;
     }
     labelsHtml += '<div class="tg-label-footer">Total</div>';
 
