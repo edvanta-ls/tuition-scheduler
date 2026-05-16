@@ -28,9 +28,12 @@
         .student-card { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
         @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
-        .lesson-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; margin-bottom: 0; }
-        .lesson-slot { background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 7px 6px; text-align: center; }
-        .lesson-slot-day { font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .students-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .lesson-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; margin-bottom: 0; }
+        .lesson-slot { background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 6px 5px; text-align: center; }
+        .slot-subject-input { width: 100%; border: none; background: transparent; font-size: 10px; font-weight: 700; color: #777; text-align: center; padding: 0 0 2px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.5px; cursor: text; }
+        .slot-subject-input:focus { outline: none; color: #1976d2; background: rgba(255,255,255,0.6); border-radius: 3px; }
+        .lesson-slot-day { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
         .slot-time-select { width: 100%; border: none; background: transparent; font-size: 13px; font-weight: 700; color: #1565c0; text-align: center; cursor: pointer; padding: 1px 0; font-family: inherit; }
         .slot-time-select:focus { outline: none; }
         .stat-card { background: #f5f5f5; border-radius: 6px; padding: 12px; }
@@ -81,6 +84,13 @@
         .revenue-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 16px; }
         .attendance-bar-wrap { background: #e0e0e0; border-radius: 99px; height: 8px; margin-top: 6px; overflow: hidden; }
         .attendance-bar { height: 8px; border-radius: 99px; background: #388e3c; }
+        .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+        .modal.active { display:flex; }
+        .modal-box { background:white; border-radius:14px; padding:24px; max-width:520px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.18); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .modal-header h2 { margin:0; font-size:18px; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#999; padding:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+        .modal-close:hover { background:#f0f0f0; border-radius:50%; }
     </style>
 </head>
 <body>
@@ -196,6 +206,17 @@
     <button class="danger-btn" onclick="window.clearAllData()">🗑️ Delete All My Data</button>
 </div>
 
+</div>
+
+<!-- EDIT STUDENT MODAL -->
+<div class="modal" id="editModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Edit Student</h2>
+            <button class="modal-close" onclick="window.closeEditModal()">×</button>
+        </div>
+        <div id="editModalContent"></div>
+    </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -360,45 +381,139 @@ window.addStudent = async function() {
     }
 };
 
+function calcEndTime(startTime, durationHours) {
+    const [h, m] = startTime.split(':').map(Number);
+    const totalMins = h * 60 + m + Math.round(durationHours * 60);
+    const eh = Math.floor(totalMins / 60) % 24;
+    const em = totalMins % 60;
+    return `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+}
+
 function renderStudents() {
-    const html = students.map(s => {
+    if (students.length === 0) {
+        document.getElementById('studentsList').innerHTML = '<div class="empty-state">No students yet</div>';
+        return;
+    }
+    const cards = students.map(s => {
         const total = (s.schedule.length * s.duration * s.hourlyRate).toFixed(2);
-        const slots = s.schedule.map(slot => `
-            <div class="lesson-slot">
+        const slots = s.schedule.map(slot => {
+            const subj = slot.subject || s.subject;
+            const end = calcEndTime(slot.time, s.duration);
+            return `<div class="lesson-slot">
+                <input class="slot-subject-input" value="${subj}"
+                    onblur="window.updateSlotSubject(${s.id},${slot.day},this.value)"
+                    title="Click to edit subject">
                 <div class="lesson-slot-day">${slot.dayName.slice(0,3)}</div>
                 <select class="slot-time-select" onchange="window.updateSlotTime(${s.id},${slot.day},this.value)">
                     ${TIMES.map(t => `<option value="${t}"${t===slot.time?' selected':''}>${t}</option>`).join('')}
                 </select>
-            </div>`).join('');
+                <div style="font-size:10px;color:#888;margin-top:2px;">ends ${end}</div>
+            </div>`;
+        }).join('');
 
         return `<div class="student-card" style="padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
                 <div>
                     <div style="font-size:15px;font-weight:700;color:#1976d2;">${s.studentName}</div>
-                    <div style="font-size:12px;color:#888;margin-top:2px;">📖 ${s.subject} &nbsp;·&nbsp; ${s.duration}h @ $${s.hourlyRate}/hr &nbsp;·&nbsp; <strong style="color:#1565c0;">$${total}/wk</strong></div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">${s.duration}h @ $${s.hourlyRate}/hr &nbsp;·&nbsp; <strong style="color:#1565c0;">$${total}/wk</strong></div>
                 </div>
-                <button class="secondary" onclick="window.deleteStudent(${s.id})" style="padding:5px 10px;font-size:12px;flex-shrink:0;">Delete</button>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                    <button onclick="window.editStudent(${s.id})" style="padding:5px 10px;font-size:12px;">Edit</button>
+                    <button class="secondary" onclick="window.deleteStudent(${s.id})" style="padding:5px 10px;font-size:12px;">Delete</button>
+                </div>
             </div>
             <div class="lesson-slots">${slots}</div>
         </div>`;
     }).join('');
-    document.getElementById('studentsList').innerHTML = html || '<div class="empty-state">No students yet</div>';
+    document.getElementById('studentsList').innerHTML = `<div class="students-grid">${cards}</div>`;
 }
 
 window.updateSlotTime = async function(studentId, dayIndex, newTime) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
-    const updated = {
-        ...student,
-        schedule: student.schedule.map(slot =>
-            slot.day === dayIndex ? { ...slot, time: newTime } : slot
-        )
-    };
+    const updated = { ...student, schedule: student.schedule.map(slot =>
+        slot.day === dayIndex ? { ...slot, time: newTime } : slot) };
     try {
         await db.collection('users').doc(currentUser.uid).collection('students').doc(String(studentId)).set(updated);
-    } catch(e) {
-        alert('Error saving time: ' + e.message);
-    }
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.updateSlotSubject = async function(studentId, dayIndex, newSubject) {
+    const student = students.find(s => s.id === studentId);
+    if (!student || !newSubject.trim()) return;
+    const updated = { ...student, schedule: student.schedule.map(slot =>
+        slot.day === dayIndex ? { ...slot, subject: newSubject.trim() } : slot) };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(studentId)).set(updated);
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.editStudent = function(studentId) {
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    let schedHtml = DAYS.map((day, i) => {
+        const slot = s.schedule.find(sl => sl.day === i);
+        const checked = slot ? 'checked' : '';
+        const selTime = slot ? slot.time : '14:00';
+        const selSubj = slot ? (slot.subject || s.subject) : s.subject;
+        return `<div style="padding:10px;background:#f9f9f9;border-radius:6px;margin-bottom:8px;">
+            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;">
+                <input type="checkbox" id="ed_day_${i}" ${checked} onchange="document.getElementById('ed_times_${i}').style.display=this.checked?'block':'none'">
+                <span style="font-weight:500;">${day}</span>
+            </label>
+            <div id="ed_times_${i}" style="display:${slot?'block':'none'};margin-top:8px;display:${slot?'grid':'none'};grid-template-columns:1fr 1fr;gap:8px;">
+                <div><label style="font-size:11px;color:#999;">Time</label>
+                    <select id="ed_time_${i}" style="width:100%;">
+                        ${TIMES.map(t=>`<option value="${t}"${t===selTime?' selected':''}>${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div><label style="font-size:11px;color:#999;">Subject</label>
+                    <input type="text" id="ed_subj_${i}" value="${selSubj}" style="width:100%;">
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('editModalContent').innerHTML = `
+        <div class="form-group"><label>Student Name</label><input type="text" id="ed_name" value="${s.studentName}"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="ed_rate" value="${s.hourlyRate}" min="0" step="5"></div>
+            <div class="form-group"><label>Duration (hours)</label><input type="number" id="ed_dur" value="${s.duration}" min="0.5" step="0.5"></div>
+        </div>
+        <div style="font-size:14px;font-weight:600;margin:16px 0 10px;">Weekly Schedule</div>
+        ${schedHtml}
+        <div style="display:flex;gap:8px;margin-top:20px;">
+            <button onclick="window.saveEditStudent(${studentId})" style="flex:1;">Save Changes</button>
+            <button class="secondary" onclick="window.closeEditModal()" style="flex:1;">Cancel</button>
+        </div>`;
+    document.getElementById('editModal').classList.add('active');
+};
+
+window.saveEditStudent = async function(studentId) {
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    const name = document.getElementById('ed_name').value.trim();
+    const rate = parseFloat(document.getElementById('ed_rate').value);
+    const dur  = parseFloat(document.getElementById('ed_dur').value);
+    if (!name || !rate || !dur) { alert('Fill all fields'); return; }
+    const schedule = DAYS.reduce((acc, day, i) => {
+        if (document.getElementById(`ed_day_${i}`).checked) {
+            acc.push({ day: i, dayName: day,
+                time: document.getElementById(`ed_time_${i}`).value,
+                subject: document.getElementById(`ed_subj_${i}`).value.trim() || name });
+        }
+        return acc;
+    }, []);
+    if (schedule.length === 0) { alert('Select at least one day'); return; }
+    const updated = { ...s, studentName: name, hourlyRate: rate, duration: dur, schedule };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(studentId)).set(updated);
+        window.closeEditModal();
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.closeEditModal = function() {
+    document.getElementById('editModal').classList.remove('active');
 };
 
 window.deleteStudent = async function(id) {
@@ -429,6 +544,7 @@ function renderCalendar() {
             weekLessons[slot.day].push({
                 studentId: s.id,
                 studentName: s.studentName,
+                subject: slot.subject || s.subject,
                 time: slot.time,
                 duration: s.duration,
                 revenue: (s.duration * s.hourlyRate).toFixed(2)
@@ -461,13 +577,17 @@ function renderCalendar() {
             const [lh, lm] = lesson.time.split(':').map(Number);
             const topPx = ((lh - START_HOUR) + lm / 60) * HOUR_PX;
             const heightPx = Math.max(lesson.duration * HOUR_PX, 22);
+            const endTime = calcEndTime(lesson.time, lesson.duration);
             const key = `${lesson.studentId}_${weekStartKey}_${i}`;
             const status = attendanceRecords[key];
             const cls = status === 'attended' ? 'attended' : status === 'cancelled' ? 'cancelled' : '';
             const icon = status === 'attended' ? ' ✓' : status === 'cancelled' ? ' ✗' : '';
+            const showEnd = heightPx >= 44;
+            const showSubj = heightPx >= 56 && lesson.subject && lesson.subject !== lesson.studentName;
             lessonsHtml += `<div class="tg-lesson ${cls}" style="top:${topPx}px;height:${heightPx}px;" onclick="window.toggleAttendance(${lesson.studentId},'${weekStartKey}',${i})">
-                <div class="tg-lesson-time">${lesson.time}${icon}</div>
-                <div>${lesson.studentName}</div>
+                <div class="tg-lesson-time">${lesson.time}${showEnd ? '–'+endTime : ''}${icon}</div>
+                <div style="font-size:10px;opacity:0.92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lesson.studentName}</div>
+                ${showSubj ? `<div style="font-size:9px;opacity:0.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lesson.subject}</div>` : ''}
             </div>`;
         });
 
