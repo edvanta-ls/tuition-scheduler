@@ -72,6 +72,14 @@
         .user-email-text { font-size: 13px; color: #999; margin-top: 2px; }
         .empty-state { text-align: center; padding: 40px 20px; color: #999; }
         .success-msg { background: #c8e6c9; color: #2e7d32; padding: 12px; border-radius: 6px; margin-bottom: 16px; display: none; }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+        button.success-btn { background: #388e3c; }
+        button.success-btn:hover { background: #2e7d32; }
+        button.danger-btn { background: #ffcdd2; color: #b71c1c; }
+        button.danger-btn:hover { background: #ef9a9a; }
+        .revenue-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 16px; }
+        .attendance-bar-wrap { background: #e0e0e0; border-radius: 99px; height: 8px; margin-top: 6px; overflow: hidden; }
+        .attendance-bar { height: 8px; border-radius: 99px; background: #388e3c; }
     </style>
 </head>
 <body>
@@ -171,6 +179,20 @@
         </div>
         <button class="secondary" onclick="window.signOutUser()">Sign Out</button>
     </div>
+
+    <h2>Export</h2>
+    <div class="btn-row">
+        <button class="success-btn" onclick="window.exportToExcel()">📊 Export Sessions (Excel)</button>
+        <button onclick="window.exportData()">📥 Backup Data (JSON)</button>
+    </div>
+    <p style="font-size: 12px; color: #999; margin-top: 8px;">Excel export covers all sessions in the currently viewed week.</p>
+
+    <h2 style="margin-top: 28px;">Import</h2>
+    <button class="secondary" onclick="document.getElementById('importFile').click()">📤 Restore from JSON</button>
+    <input type="file" id="importFile" accept=".json" style="display:none;" onchange="window.importData(event)">
+
+    <h2 style="margin-top: 28px;">Danger Zone</h2>
+    <button class="danger-btn" onclick="window.clearAllData()">🗑️ Delete All My Data</button>
 </div>
 
 </div>
@@ -454,10 +476,12 @@ function renderCalendar() {
 }
 
 function updateCalendarRevenueSummary() {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
+    // Use the month of the week being viewed, not necessarily today
+    const viewed = new Date(currentWeekStart);
+    const year = viewed.getFullYear();
+    const month = viewed.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthName = viewed.toLocaleString('default', { month: 'long' });
 
     // Count how many times each JS day-of-week (0=Sun..6=Sat) appears this month
     const dayCount = [0,0,0,0,0,0,0];
@@ -529,12 +553,311 @@ window.nextWeek = function() {
     renderCalendar();
 };
 
+function renderAnalytics() {
+    const container = document.getElementById('analyticsList');
+    if (students.length === 0) {
+        container.innerHTML = '<div class="empty-state">No students yet. Add students to see analytics.</div>';
+        return;
+    }
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const dayOfMonth = today.getDate();
+    const monthName = today.toLocaleString('default', { month: 'long' });
+
+    const thisWeekStart = getMonday(new Date());
+    const thisWeekKey = thisWeekStart.toISOString().split('T')[0];
+
+    // Day occurrences in this month for projection
+    const dayCount = [0,0,0,0,0,0,0];
+    for (let d = 1; d <= daysInMonth; d++) {
+        dayCount[new Date(year, month, d).getDay()]++;
+    }
+
+    // ── WEEKLY AGGREGATES ──
+    let wkScheduled = 0, wkAttended = 0, wkCancelled = 0, wkEarned = 0, wkPotential = 0, wkLost = 0;
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            const key = `${s.id}_${thisWeekKey}_${slot.day}`;
+            const status = attendanceRecords[key];
+            const rev = s.duration * s.hourlyRate;
+            wkScheduled++;
+            wkPotential += rev;
+            if (status === 'attended')      { wkAttended++;  wkEarned += rev; }
+            else if (status === 'cancelled') { wkCancelled++; wkLost   += rev; }
+        });
+    });
+    const wkPending  = wkScheduled - wkAttended - wkCancelled;
+    const wkMarked   = wkAttended + wkCancelled;
+    const wkAttRate  = wkMarked > 0 ? Math.round((wkAttended / wkMarked) * 100) : null;
+
+    // ── MONTHLY AGGREGATES ──
+    let totalWeekly = 0, totalProjected = 0;
+    let moAttended = 0, moCancelled = 0, moEarned = 0, moLost = 0;
+
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            totalWeekly += s.duration * s.hourlyRate;
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            totalProjected += s.duration * s.hourlyRate * dayCount[jsDay];
+        });
+    });
+
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        const sid = parts[0], dateStr = parts[1], dayIdx = parts[2];
+        const rec = new Date(dateStr);
+        if (rec.getMonth() === month && rec.getFullYear() === year) {
+            const student = students.find(s => s.id === parseInt(sid));
+            if (student) {
+                const sch = student.schedule.find(sc => sc.day === parseInt(dayIdx));
+                if (sch) {
+                    const rev = student.duration * student.hourlyRate;
+                    if (status === 'attended')      { moAttended++;  moEarned += rev; }
+                    else if (status === 'cancelled') { moCancelled++; moLost   += rev; }
+                }
+            }
+        }
+    });
+
+    const moMarked   = moAttended + moCancelled;
+    const moAttRate  = moMarked > 0 ? Math.round((moAttended / moMarked) * 100) : null;
+    const moRevPct   = totalProjected > 0 ? Math.round((moEarned / totalProjected) * 100) : 0;
+    const moTimePct  = Math.round((dayOfMonth / daysInMonth) * 100);
+    const perDay     = totalWeekly / 7;
+
+    function rateColor(pct) {
+        if (pct >= 80) return '#388e3c';
+        if (pct >= 50) return '#f57c00';
+        return '#c62828';
+    }
+    function bar(pct, color) {
+        const c = color || rateColor(pct);
+        return `<div class="attendance-bar-wrap" style="margin-top:5px;"><div class="attendance-bar" style="width:${Math.min(pct,100)}%;background:${c};"></div></div>`;
+    }
+    function sectionLabel(txt) {
+        return `<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;">${txt}</div>`;
+    }
+
+    let html = '';
+
+    // ══════════════════════════
+    //  THIS WEEK
+    // ══════════════════════════
+    html += `<h2 style="margin-bottom:12px;">This Week</h2>
+    <div class="revenue-stats-grid">
+        <div class="student-card"><div class="stat-label">Sessions Scheduled</div><div class="stat-value">${wkScheduled}</div></div>
+        <div class="student-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${wkAttended}</div></div>
+        <div class="student-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${wkCancelled}</div></div>
+        <div class="student-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${wkPending}</div></div>
+        <div class="student-card"><div class="stat-label">Revenue Earned</div><div class="stat-value">$${wkEarned.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Revenue Lost</div><div class="stat-value" style="color:#c62828;">$${wkLost.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Weekly Potential</div><div class="stat-value">$${wkPotential.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Attendance Rate</div><div class="stat-value" style="color:${wkAttRate !== null ? rateColor(wkAttRate) : '#999'};">${wkAttRate !== null ? wkAttRate + '%' : '—'}</div></div>
+    </div>`;
+
+    if (wkAttRate !== null) {
+        html += `<div class="student-card" style="margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Weekly attendance rate &nbsp;(${wkAttended} attended · ${wkCancelled} cancelled)</span>
+                <span style="font-size:12px;font-weight:700;color:${rateColor(wkAttRate)};">${wkAttRate}%</span>
+            </div>
+            ${bar(wkAttRate)}
+        </div>`;
+    }
+
+    // ══════════════════════════
+    //  THIS MONTH
+    // ══════════════════════════
+    html += `<h2 style="margin-top:20px;margin-bottom:12px;">${monthName} ${year}</h2>
+    <div class="revenue-stats-grid">
+        <div class="student-card"><div class="stat-label">Revenue Earned</div><div class="stat-value">$${moEarned.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Projected Monthly</div><div class="stat-value">$${totalProjected.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Revenue Lost</div><div class="stat-value" style="color:#c62828;">$${moLost.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Avg Per Day</div><div class="stat-value">$${perDay.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Sessions Attended</div><div class="stat-value" style="color:#388e3c;">${moAttended}</div></div>
+        <div class="student-card"><div class="stat-label">Sessions Cancelled</div><div class="stat-value" style="color:#c62828;">${moCancelled}</div></div>
+        <div class="student-card"><div class="stat-label">Attendance Rate</div><div class="stat-value" style="color:${moAttRate !== null ? rateColor(moAttRate) : '#999'};">${moAttRate !== null ? moAttRate + '%' : '—'}</div></div>
+        <div class="student-card"><div class="stat-label">% Revenue Achieved</div><div class="stat-value" style="color:#388e3c;">${moRevPct}%</div></div>
+    </div>
+
+    <div class="student-card" style="margin-bottom:4px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px;">Monthly Progress — ${monthName} ${year}</div>
+        <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Revenue achieved &nbsp;($${moEarned.toFixed(0)} of $${totalProjected.toFixed(0)})</span>
+                <span style="font-size:12px;font-weight:700;color:${rateColor(moRevPct)};">${moRevPct}%</span>
+            </div>${bar(moRevPct)}
+        </div>
+        <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Month elapsed &nbsp;(day ${dayOfMonth} of ${daysInMonth})</span>
+                <span style="font-size:12px;font-weight:700;color:#1976d2;">${moTimePct}%</span>
+            </div>${bar(moTimePct, '#1976d2')}
+        </div>
+        ${moAttRate !== null ? `<div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Attendance rate &nbsp;(${moAttended} attended · ${moCancelled} cancelled)</span>
+                <span style="font-size:12px;font-weight:700;color:${rateColor(moAttRate)};">${moAttRate}%</span>
+            </div>${bar(moAttRate)}</div>` : ''}
+    </div>`;
+
+    // ══════════════════════════
+    //  PER STUDENT
+    // ══════════════════════════
+    html += `<h2 style="margin-top:20px;margin-bottom:12px;">Student Performance — ${monthName} ${year}</h2>`;
+
+    students.forEach(s => {
+        const weeklyRev  = s.schedule.length * s.duration * s.hourlyRate;
+        const monthlyRev = s.schedule.reduce((sum, slot) => {
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            return sum + s.duration * s.hourlyRate * dayCount[jsDay];
+        }, 0);
+
+        // This week — per student
+        let sWkAtt = 0, sWkCanc = 0, sWkPend = 0;
+        s.schedule.forEach(slot => {
+            const status = attendanceRecords[`${s.id}_${thisWeekKey}_${slot.day}`];
+            if (status === 'attended') sWkAtt++;
+            else if (status === 'cancelled') sWkCanc++;
+            else sWkPend++;
+        });
+
+        // This month — per student
+        let sAtt = 0, sCanc = 0, sEarned = 0, sLost = 0;
+        Object.entries(attendanceRecords).forEach(([key, status]) => {
+            const parts = key.split('_');
+            if (parts[0] !== String(s.id)) return;
+            const rec = new Date(parts[1]);
+            if (rec.getMonth() !== month || rec.getFullYear() !== year) return;
+            const rev = s.duration * s.hourlyRate;
+            if (status === 'attended')      { sAtt++;  sEarned += rev; }
+            else if (status === 'cancelled') { sCanc++; sLost   += rev; }
+        });
+
+        const sMarked  = sAtt + sCanc;
+        const sAttRate = sMarked > 0 ? Math.round((sAtt / sMarked) * 100) : null;
+
+        html += `<div class="student-card">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:#1976d2;">${s.studentName}</div>
+                    <div style="font-size:12px;color:#666;margin-top:3px;">📖 ${s.subject} &nbsp;·&nbsp; ${s.duration}h @ $${s.hourlyRate}/hr</div>
+                </div>
+                ${sAttRate !== null
+                    ? `<div style="text-align:center;background:${rateColor(sAttRate)};color:white;border-radius:10px;padding:7px 14px;line-height:1.2;">
+                           <div style="font-size:18px;font-weight:700;">${sAttRate}%</div>
+                           <div style="font-size:10px;">att. rate</div>
+                       </div>`
+                    : ''}
+            </div>
+
+            ${sectionLabel('This week')}
+            <div class="revenue-summary" style="grid-template-columns:repeat(4,1fr);margin-top:0;">
+                <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value">${s.schedule.length}</div></div>
+                <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sWkAtt}</div></div>
+                <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sWkCanc}</div></div>
+                <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${sWkPend}</div></div>
+            </div>
+
+            ${sectionLabel(monthName + ' ' + year)}
+            <div class="revenue-summary" style="margin-top:0;">
+                <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${weeklyRev.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Projected Monthly</div><div class="stat-value">$${monthlyRev.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Earned</div><div class="stat-value" style="color:#388e3c;">$${sEarned.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Lost (cancelled)</div><div class="stat-value" style="color:#c62828;">$${sLost.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sAtt} sessions</div></div>
+                <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sCanc} sessions</div></div>
+            </div>
+
+            ${sAttRate !== null ? `<div style="margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                    <span style="font-size:12px;color:#666;">Attendance rate &nbsp;(${sAtt} attended · ${sCanc} cancelled)</span>
+                    <span style="font-size:12px;font-weight:700;color:${rateColor(sAttRate)};">${sAttRate}%</span>
+                </div>${bar(sAttRate)}
+            </div>` : `<div style="font-size:11px;color:#aaa;margin-top:10px;">No sessions marked yet — click lessons in the calendar to track attendance.</div>`}
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+window.exportToExcel = function() {
+    if (typeof XLSX === 'undefined') { alert('Excel library not loaded'); return; }
+    const weekStartKey = currentWeekStart.toISOString().split('T')[0];
+    const rows = [['Student', 'Subject', 'Day', 'Date', 'Time', 'Duration (h)', 'Rate ($/h)', 'Revenue ($)', 'Status']];
+    const DAYNAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(currentWeekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        students.forEach(s => {
+            const slot = s.schedule.find(sl => sl.day === i);
+            if (slot) {
+                const key = `${s.id}_${weekStartKey}_${i}`;
+                const status = attendanceRecords[key] || 'pending';
+                rows.push([s.studentName, s.subject, DAYNAMES[i], dayDate.toLocaleDateString(), slot.time, s.duration, s.hourlyRate, (s.duration * s.hourlyRate).toFixed(2), status]);
+            }
+        });
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+    XLSX.writeFile(wb, `tuition_sessions_${weekStartKey}.xlsx`);
+};
+
+window.exportData = function() {
+    const data = { students, attendanceRecords, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tuition_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+};
+
+window.importData = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!confirm(`Import ${(data.students || []).length} students? Existing data will be overwritten.`)) return;
+        const snap = await db.collection('users').doc(currentUser.uid).collection('students').get();
+        for (const d of snap.docs) await d.ref.delete();
+        for (const student of (data.students || [])) {
+            await db.collection('users').doc(currentUser.uid).collection('students').doc(String(student.id)).set(student);
+        }
+        if (data.attendanceRecords) {
+            await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').set({ records: data.attendanceRecords });
+        }
+        alert('Import successful!');
+        event.target.value = '';
+    } catch(e) {
+        alert('Import failed: ' + e.message);
+    }
+};
+
+window.clearAllData = async function() {
+    if (!confirm('Delete ALL your data? This cannot be undone.')) return;
+    if (!confirm('Are you absolutely sure? All students and attendance records will be permanently deleted.')) return;
+    try {
+        const snap = await db.collection('users').doc(currentUser.uid).collection('students').get();
+        for (const d of snap.docs) await d.ref.delete();
+        await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').delete();
+        alert('All data deleted.');
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+};
+
 window.switchTab = function(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tab).classList.add('active');
     event.target.classList.add('active');
     if (tab === 'calendar') renderCalendar();
+    if (tab === 'analytics') renderAnalytics();
 };
 
 console.log('Script loaded successfully');
