@@ -1,1625 +1,1487 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tuition Scheduler</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;color:#333;min-height:100vh}
-#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#667eea,#764ba2)}
-.login-card{background:#fff;padding:40px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center;max-width:380px;width:90%}
-.login-card h1{font-size:28px;color:#4a4a8a;margin-bottom:8px}
-.login-card p{color:#666;margin-bottom:28px;font-size:14px}
-.btn-google{display:inline-flex;align-items:center;gap:10px;background:#4285f4;color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:16px;cursor:pointer;transition:background 0.2s}
-.btn-google:hover{background:#3367d6}
-#app{display:none;min-height:100vh}
-.topbar{background:#4a4a8a;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.topbar h1{font-size:18px;font-weight:600}
-.topbar-right{display:flex;align-items:center;gap:12px}
-.user-info{font-size:13px;opacity:0.85}
-.btn-signout{background:rgba(255,255,255,0.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px}
-.btn-signout:hover{background:rgba(255,255,255,0.3)}
-nav{background:#fff;border-bottom:2px solid #e0e0e0;display:flex;overflow-x:auto}
-nav button{padding:14px 20px;border:none;background:none;cursor:pointer;font-size:14px;color:#666;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all 0.2s}
-nav button.active{color:#4a4a8a;border-bottom-color:#4a4a8a;font-weight:600}
-nav button:hover:not(.active){background:#f5f5f5;color:#4a4a8a}
-.tab{display:none;padding:20px;max-width:1200px;margin:0 auto}
-.tab.active{display:block}
-.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);padding:20px;margin-bottom:20px}
-.card h2{font-size:18px;color:#4a4a8a;margin-bottom:16px}
-.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:500;transition:all 0.2s}
-.btn-primary{background:#4a4a8a;color:#fff}
-.btn-primary:hover{background:#3a3a7a}
-.btn-secondary{background:#e8e8f0;color:#4a4a8a}
-.btn-secondary:hover{background:#d8d8e8}
-.btn-danger{background:#e53935;color:#fff}
-.btn-danger:hover{background:#c62828}
-.btn-success{background:#43a047;color:#fff}
-.btn-success:hover{background:#388e3c}
-.btn-sm{padding:5px 12px;font-size:12px}
-input,select,textarea{width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;outline:none;transition:border 0.2s;font-family:inherit}
-input:focus,select:focus,textarea:focus{border-color:#4a4a8a}
-label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:4px}
-.form-group{margin-bottom:14px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:16px}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative}
-.modal h2{font-size:20px;color:#4a4a8a;margin-bottom:20px}
-.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
-.close-btn{position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1}
-.close-btn:hover{color:#333}
-/* Students tab */
-.students-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
-.search-box{padding:8px 14px;border:1.5px solid #ddd;border-radius:20px;font-size:14px;width:220px;outline:none}
-.search-box:focus{border-color:#4a4a8a}
-.student-list{display:grid;gap:12px}
-.student-card{background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;transition:box-shadow 0.2s}
-.student-card:hover{box-shadow:0 4px 16px rgba(74,74,138,0.15)}
-.student-info h3{font-size:16px;margin-bottom:4px}
-.student-info p{font-size:13px;color:#666;margin-bottom:2px}
-.student-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
-.badge-active{background:#e8f5e9;color:#2e7d32}
-.badge-inactive{background:#fafafa;color:#999;border:1px solid #ddd}
-.badge-day{background:#e8eaf6;color:#3949ab}
-.student-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
-/* Attendance grid */
-.week-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-.week-nav span{font-weight:600;font-size:15px}
-.att-table{width:100%;border-collapse:collapse;font-size:13px}
-.att-table th{background:#f0f2f5;padding:10px 8px;text-align:center;font-weight:600;color:#4a4a8a}
-.att-table td{padding:8px;text-align:center;border-bottom:1px solid #f0f0f0}
-.att-table tr:hover td{background:#fafafa}
-.att-check{width:22px;height:22px;cursor:pointer;accent-color:#4a4a8a}
-/* Calendar */
-.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cal-day-label{text-align:center;font-size:12px;font-weight:600;color:#666;padding:4px}
-.cal-cell{min-height:80px;background:#fafafa;border:1px solid #e8e8e8;border-radius:8px;padding:4px;position:relative;overflow:hidden}
-.cal-cell.other-month{opacity:0.4}
-.cal-cell.today{border-color:#4a4a8a;background:#f0f0ff}
-.cal-date{font-size:11px;font-weight:600;color:#555;margin-bottom:2px}
-.cal-lesson{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;background:#e8eaf6;color:#3949ab}
-.cal-lesson.overlap-0{background:#e8eaf6;color:#283593}
-.cal-lesson.overlap-1{background:#fce4ec;color:#880e4f}
-.cal-lesson.overlap-2{background:#e8f5e9;color:#1b5e20}
-.cal-lesson:hover{opacity:0.8}
-/* Analytics */
-.analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
-.stat-card{background:#f0f2f5;border-radius:10px;padding:16px;text-align:center}
-.stat-card .stat-val{font-size:28px;font-weight:700;color:#4a4a8a}
-.stat-card .stat-lbl{font-size:12px;color:#666;margin-top:4px}
-.chart-bar-wrap{margin-bottom:20px}
-.chart-bar-wrap h3{font-size:15px;color:#4a4a8a;margin-bottom:10px}
-.bar-chart{display:flex;align-items:flex-end;gap:8px;height:140px;padding-bottom:24px;position:relative;border-bottom:2px solid #e0e0e0}
-.bar-col{display:flex;flex-direction:column;align-items:center;flex:1;height:100%}
-.bar-col .bar-val{font-size:10px;color:#666;margin-bottom:3px}
-.bar-inner{background:linear-gradient(180deg,#7986cb,#4a4a8a);border-radius:4px 4px 0 0;width:100%;min-height:2px;transition:height 0.4s}
-.bar-label{font-size:10px;color:#555;position:absolute;bottom:-20px;text-align:center;white-space:nowrap}
-.student-analytics-card{border:1.5px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:12px}
-.student-analytics-card h4{color:#4a4a8a;margin-bottom:8px;font-size:15px}
-.mini-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
-.mini-stat{background:#f5f5ff;border-radius:6px;padding:6px 10px;font-size:12px;color:#555}
-.mini-stat strong{display:block;font-size:16px;color:#4a4a8a}
-.canc-warn{background:#fff3e0;border-left:4px solid #ff9800;padding:8px 12px;border-radius:4px;font-size:12px;color:#e65100;margin-top:8px}
-.progress-bar-wrap{margin-top:6px}
-.progress-bar-bg{background:#e0e0e0;border-radius:4px;height:8px;overflow:hidden}
-.progress-bar-fill{background:#4a4a8a;height:100%;border-radius:4px;transition:width 0.4s}
-/* Payments */
-.payments-grid{display:grid;gap:12px}
-.payment-row{background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.payment-row.paid{border-color:#a5d6a7}
-.payment-row.unpaid{border-color:#ef9a9a}
-.payment-status{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
-.payment-status.paid{background:#e8f5e9;color:#2e7d32}
-.payment-status.unpaid{background:#ffebee;color:#c62828}
-/* Settings */
-.settings-section{margin-bottom:24px}
-.settings-section h3{font-size:16px;color:#4a4a8a;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #f0f0f0}
-.danger-zone{border:1.5px solid #ef9a9a;border-radius:10px;padding:16px}
-.danger-zone h3{color:#c62828}
-.danger-btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-/* Invoice */
-.invoice-preview{border:2px solid #4a4a8a;border-radius:8px;padding:24px;background:#fff}
-.invoice-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px}
-.invoice-header h2{color:#4a4a8a;font-size:22px}
-.invoice-to p{font-size:14px;color:#555;margin-bottom:2px}
-.invoice-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
-.invoice-table th{background:#4a4a8a;color:#fff;padding:8px 12px;text-align:left}
-.invoice-table td{padding:8px 12px;border-bottom:1px solid #e0e0e0}
-.invoice-table tfoot td{font-weight:600;border-top:2px solid #4a4a8a}
-.invoice-footer{font-size:12px;color:#999;text-align:center;margin-top:16px}
-/* Quick-add one-off */
-.oneoff-list{display:grid;gap:8px}
-.oneoff-item{background:#f0f2f5;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:13px}
-/* Notes */
-.notes-area{width:100%;min-height:80px;resize:vertical}
-/* Month selector */
-.month-selector{display:flex;align-items:center;gap:10px}
-.month-selector select{width:auto;padding:6px 10px}
-/* Spinner */
-.spinner{display:inline-block;width:18px;height:18px;border:2.5px solid #ccc;border-top-color:#4a4a8a;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle}
-@keyframes spin{to{transform:rotate(360deg)}}
-/* Toast */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:10px 22px;border-radius:24px;font-size:14px;z-index:9999;display:none;white-space:nowrap}
-/* Mobile */
-@media(max-width:700px){
-  .form-row{grid-template-columns:1fr}
-  .analytics-grid{grid-template-columns:1fr 1fr}
-  nav button{padding:12px 14px;font-size:13px}
-  .student-card{flex-direction:column}
-  .student-actions{justify-content:flex-end}
-  .topbar h1{font-size:16px}
-  .tab{padding:12px}
-  .cal-cell{min-height:52px}
-  .cal-lesson{font-size:9px}
-  .payment-row{flex-direction:column;align-items:flex-start}
-}
-/* Week time-grid (original tg style) */
-.tg-scroll{overflow-x:auto;overflow-y:auto;max-height:80vh;border:1px solid #e0e0e0;border-radius:8px;background:#fff}
-.tg-wrap{display:flex;min-width:600px}
-.tg-labels{width:50px;flex-shrink:0;border-right:1px solid #e0e0e0;position:sticky;left:0;background:#fff;z-index:3}
-.tg-label-header{height:48px;border-bottom:1px solid #e0e0e0}
-.tg-label{height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:3px 6px 0 0;font-size:10px;color:#bbb;border-bottom:1px solid #f0f0f0}
-.tg-days{display:flex;flex:1}
-.tg-day{flex:1;min-width:80px;border-right:1px solid #e0e0e0}
-.tg-day:last-child{border-right:none}
-.tg-day-header{height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f5f5f5;border-bottom:1px solid #e0e0e0;position:sticky;top:0;z-index:2;position:relative}
-.tg-day.tg-today .tg-day-header{background:#e8eaf6}
-.tg-day.tg-today .tg-day-num{color:#4a4a8a;font-weight:700}
-.tg-day-num{font-size:16px;font-weight:600;color:#333;line-height:1}
-.tg-day-name{font-size:10px;color:#999;margin-top:2px}
-.tg-day-body{position:relative}
-.tg-hour-line{position:absolute;left:0;right:0;border-top:1px solid #ebebeb;pointer-events:none}
-.tg-lesson{position:absolute;left:2px;right:2px;background:linear-gradient(135deg,#4a4a8a,#3a3a7a);color:#fff;border-radius:4px;padding:3px 5px;font-size:10px;cursor:pointer;overflow:hidden;z-index:1;transition:filter 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
-.tg-lesson:hover{filter:brightness(1.12)}
-.tg-lesson.attended{background:linear-gradient(135deg,#388e3c,#2e7d32)}
-.tg-lesson.cancelled{background:linear-gradient(135deg,#c62828,#b71c1c);opacity:0.75}
-.tg-lesson.one-off{border:2px dashed rgba(255,255,255,0.55)}
-.tg-lesson-time{font-weight:700;font-size:10px;white-space:nowrap}
-.tg-add-btn{position:absolute;right:4px;top:4px;background:none;border:1px solid #ccc;color:#bbb;border-radius:50%;width:18px;height:18px;font-size:14px;line-height:1;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.tg-add-btn:hover{border-color:#4a4a8a;color:#4a4a8a}
-.tg-day-footer{padding:6px 4px;text-align:center;font-size:11px;font-weight:700;color:#4a4a8a;background:#e8e8f5;border-top:2px solid #c8c8e8}
-.tg-day-footer.no-class{color:#bbb;background:#fafafa;border-top:1px solid #ebebeb;font-weight:400}
-.tg-label-footer{height:30px;border-top:2px solid #e0e0e0;background:#f5f5f5;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;font-size:9px;color:#aaa}
-/* Print invoice only */
-@media print{
-  body>*{display:none}
-  #invoice-modal .invoice-preview{display:block!important}
-  #invoice-modal{display:block!important;position:static!important;background:none!important;padding:0!important}
-  .modal{box-shadow:none;padding:0;max-height:none}
-  .modal-footer,.close-btn{display:none}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuition Scheduler</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; padding: 16px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { font-size: 28px; margin-bottom: 24px; color: #222; }
+        h2 { font-size: 18px; margin: 20px 0 12px; color: #333; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 16px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; transition: all 0.3s; }
+        .tab-btn.active { color: #1976d2; border-bottom-color: #1976d2; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; color: #333; }
+        input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        input:focus, select:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.1); }
+        button { background: #1976d2; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #1565c0; }
+        button.secondary { background: #e0e0e0; color: #333; }
+        button.secondary:hover { background: #d0d0d0; }
+        .student-card { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+        .students-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .lesson-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; margin-bottom: 0; }
+        .lesson-slot { background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 6px 5px; text-align: center; }
+        .slot-subject-input { width: 100%; border: none; background: transparent; font-size: 10px; font-weight: 700; color: #777; text-align: center; padding: 0 0 2px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.5px; cursor: text; }
+        .slot-subject-input:focus { outline: none; color: #1976d2; background: rgba(255,255,255,0.6); border-radius: 3px; }
+        .lesson-slot-day { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+        .slot-time-select { width: 100%; border: none; background: transparent; font-size: 13px; font-weight: 700; color: #1565c0; text-align: center; cursor: pointer; padding: 1px 0; font-family: inherit; }
+        .slot-time-select:focus { outline: none; }
+        .stat-card { background: #f5f5f5; border-radius: 6px; padding: 12px; }
+        .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+        .stat-value { font-size: 18px; font-weight: 600; color: #1976d2; }
+        .revenue-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
+        .week-info { text-align: center; font-size: 14px; color: #666; flex: 1; }
+        .tg-scroll { overflow-x: auto; overflow-y: auto; max-height: 80vh; border: 1px solid #e0e0e0; border-radius: 8px; background: white; }
+        .tg-wrap { display: flex; min-width: 600px; }
+        .tg-labels { width: 50px; flex-shrink: 0; border-right: 1px solid #e0e0e0; position: sticky; left: 0; background: white; z-index: 3; }
+        .tg-label-header { height: 48px; border-bottom: 1px solid #e0e0e0; background: #f5f5f5; }
+        .tg-label { height: 60px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 3px 6px 0 0; font-size: 10px; color: #bbb; border-bottom: 1px solid #f0f0f0; }
+        .tg-days { display: flex; flex: 1; }
+        .tg-day { flex: 1; min-width: 80px; border-right: 1px solid #e0e0e0; }
+        .tg-day:last-child { border-right: none; }
+        .tg-day-header { height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 2; }
+        .tg-day.tg-today .tg-day-header { background: #bbdefb; }
+        .tg-day.tg-today .tg-day-num { color: #1565c0; font-weight: 700; }
+        .tg-day-num { font-size: 16px; font-weight: 600; color: #333; line-height: 1; }
+        .tg-day-name { font-size: 10px; color: #999; margin-top: 2px; }
+        .tg-day-body { position: relative; }
+        .tg-hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid #ebebeb; pointer-events: none; }
+        .tg-lesson { position: absolute; left: 2px; right: 2px; background: linear-gradient(135deg, #1976d2, #1565c0); color: white; border-radius: 4px; padding: 3px 5px; font-size: 10px; cursor: pointer; overflow: hidden; z-index: 1; transition: filter 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .tg-lesson:hover { filter: brightness(1.12); }
+        .tg-lesson.attended { background: linear-gradient(135deg, #388e3c, #2e7d32); }
+        .tg-lesson.cancelled { background: linear-gradient(135deg, #c62828, #b71c1c); opacity: 0.75; }
+        .tg-lesson.one-off { border: 2px dashed rgba(255,255,255,0.55); }
+        .tg-lesson-time { font-weight: 700; font-size: 10px; white-space: nowrap; }
+        .tg-day-header { position: relative !important; }
+        .tg-add-btn { position:absolute; right:4px; top:4px; background:none; border:1px solid #ccc; color:#bbb; border-radius:50%; width:16px; height:16px; font-size:13px; line-height:1; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .tg-add-btn:hover { background:#1976d2 !important; border-color:#1976d2; color:white; }
+        .lm-att-btn { flex:1; padding:9px 4px; font-size:12px; border-radius:6px; border:none; cursor:pointer; font-family:inherit; font-weight:500; transition:background 0.15s; }
+        .tg-day-footer { padding: 6px 4px; text-align: center; font-size: 11px; font-weight: 700; color: #1565c0; background: #e3f2fd; border-top: 2px solid #bbdefb; }
+        .tg-day-footer.no-class { color: #bbb; background: #fafafa; border-top: 1px solid #ebebeb; font-weight: 400; }
+        .tg-label-footer { height: 30px; border-top: 2px solid #e0e0e0; background: #f5f5f5; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-size: 9px; color: #aaa; }
+        .login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .login-card { background: white; border-radius: 20px; padding: 48px 40px; text-align: center; max-width: 380px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+        .google-btn { display: flex; align-items: center; justify-content: center; gap: 12px; background: white; color: #333; border: 2px solid #e0e0e0; padding: 14px 24px; border-radius: 10px; font-size: 15px; font-weight: 500; width: 100%; cursor: pointer; transition: box-shadow 0.2s; }
+        .google-btn:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+        .user-profile { display: flex; align-items: center; gap: 16px; background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+        .user-avatar { width: 48px; height: 48px; border-radius: 50%; background: #1976d2; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; flex-shrink: 0; }
+        .user-info { flex: 1; }
+        .user-name { font-weight: 600; font-size: 15px; }
+        .user-email-text { font-size: 13px; color: #999; margin-top: 2px; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+        .success-msg { background: #c8e6c9; color: #2e7d32; padding: 12px; border-radius: 6px; margin-bottom: 16px; display: none; }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+        button.success-btn { background: #388e3c; }
+        button.success-btn:hover { background: #2e7d32; }
+        button.danger-btn { background: #ffcdd2; color: #b71c1c; }
+        button.danger-btn:hover { background: #ef9a9a; }
+        .revenue-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 16px; }
+        .attendance-bar-wrap { background: #e0e0e0; border-radius: 99px; height: 8px; margin-top: 6px; overflow: hidden; }
+        .attendance-bar { height: 8px; border-radius: 99px; background: #388e3c; }
+        .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+        .modal.active { display:flex; }
+        .modal-box { background:white; border-radius:14px; padding:24px; max-width:520px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.18); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .modal-header h2 { margin:0; font-size:18px; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#999; padding:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+        .modal-close:hover { background:#f0f0f0; border-radius:50%; }
+    </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div id="login-screen">
-  <div class="login-card">
-    <h1>Tuition Scheduler</h1>
-    <p>Sign in to manage your students and sessions</p>
-    <button class="btn-google" onclick="signIn()">
-      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFF" d="M44.5 20H24v8.5h11.7C34.2 33.6 29.7 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 6 1.1 8.1 3l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/></svg>
-      Sign in with Google
-    </button>
-  </div>
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <div style="font-size: 52px; margin-bottom: 16px;">📚</div>
+        <h1 style="font-size: 24px; color: #222; margin-bottom: 8px;">Tuition Scheduler</h1>
+        <p style="color: #999; font-size: 14px; margin-bottom: 32px;">Sign in to sync your schedule</p>
+        <button class="google-btn" onclick="window.signInWithGoogle()">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign in with Google
+        </button>
+    </div>
 </div>
 
-<!-- Main App -->
-<div id="app">
-  <div class="topbar">
-    <h1>Tuition Scheduler</h1>
-    <div class="topbar-right">
-      <span class="user-info" id="user-name"></span>
-      <button class="btn-signout" onclick="signOut()">Sign out</button>
+<div class="container" id="appContainer" style="display:none;">
+    <h1>📚 Tuition Scheduler</h1>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="window.switchTab('students')">My Students</button>
+        <button class="tab-btn" onclick="window.switchTab('calendar')">Calendar</button>
+        <button class="tab-btn" onclick="window.switchTab('analytics')">Analytics</button>
+        <button class="tab-btn" onclick="window.switchTab('settings')">Settings</button>
     </div>
-  </div>
-  <nav>
-    <button onclick="switchTab('students')" id="tab-btn-students" class="active">My Students</button>
-    <button onclick="switchTab('calendar')" id="tab-btn-calendar">Calendar</button>
-    <button onclick="switchTab('analytics')" id="tab-btn-analytics">Analytics</button>
-    <button onclick="switchTab('payments')" id="tab-btn-payments">Payments</button>
-    <button onclick="switchTab('settings')" id="tab-btn-settings">Settings</button>
-  </nav>
 
-  <!-- STUDENTS TAB -->
-  <div class="tab active" id="tab-students">
-    <div class="students-header">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <input type="text" class="search-box" placeholder="Search students..." oninput="filterStudents(this.value)" id="student-search">
-        <button class="btn btn-primary" onclick="openAddStudent()">+ Add Student</button>
-      </div>
-    </div>
-    <div id="student-list" class="student-list"></div>
-    <div class="card" style="margin-top:20px">
-      <h2>Weekly Attendance</h2>
-      <div class="week-nav">
-        <button class="btn btn-secondary btn-sm" onclick="prevWeek()">&#8592; Prev</button>
-        <span id="week-label"></span>
-        <button class="btn btn-secondary btn-sm" onclick="nextWeek()">Next &#8594;</button>
-        <button class="btn btn-secondary btn-sm" onclick="goToThisWeek()">This Week</button>
-      </div>
-      <div style="overflow-x:auto"><table class="att-table" id="att-table"><thead></thead><tbody></tbody></table></div>
-    </div>
-    <!-- Quick-add one-off session -->
-    <div class="card">
-      <h2>One-off Sessions</h2>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
-        <div class="form-group" style="margin:0;min-width:160px">
-          <label>Student</label>
-          <select id="oneoff-student"></select>
+<div id="students" class="tab-content active">
+    <div class="success-msg" id="successMsg"></div>
+    <h2>Add New Student</h2>
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Student Name</label>
+            <input type="text" id="studentName">
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Date</label>
-          <input type="date" id="oneoff-date" style="width:150px">
+        <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="subject">
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Time</label>
-          <input type="time" id="oneoff-time" style="width:120px">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Duration (min)</label>
-          <input type="number" id="oneoff-dur" value="60" style="width:100px" min="15" step="15">
-        </div>
-        <button class="btn btn-primary" onclick="addOneOff()">Add One-off</button>
-      </div>
-      <div id="oneoff-list" class="oneoff-list"></div>
     </div>
-  </div>
-
-  <!-- CALENDAR TAB -->
-  <div class="tab" id="tab-calendar">
-    <div id="cal-revenue-summary" style="background:#fff;border-radius:8px;padding:8px 14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07)"></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="btn btn-primary btn-sm" id="cal-view-month-btn" onclick="setCalView('month')">Month</button>
-      <button class="btn btn-secondary btn-sm" id="cal-view-week-btn" onclick="setCalView('week')">Week</button>
-    </div>
-    <div id="cal-month-section" class="card">
-      <div class="cal-header">
-        <button class="btn btn-secondary btn-sm" onclick="prevMonth()">&#8592;</button>
-        <span id="cal-month-label" style="font-weight:700;font-size:17px;color:#4a4a8a"></span>
-        <button class="btn btn-secondary btn-sm" onclick="nextMonth()">&#8594;</button>
-      </div>
-      <div class="cal-grid" id="cal-grid"></div>
-    </div>
-    <div id="cal-week-section" class="card" style="display:none">
-      <div class="cal-header" style="flex-wrap:wrap;gap:8px">
-        <button class="btn btn-secondary btn-sm" onclick="prevWeekCal()">&#8592;</button>
-        <span id="week-cal-label" style="font-weight:700;font-size:15px;color:#4a4a8a"></span>
-        <button class="btn btn-secondary btn-sm" onclick="nextWeekCal()">&#8594;</button>
-        <button class="btn btn-secondary btn-sm" onclick="goToThisWeekCal()">This Week</button>
-      </div>
-      <p style="font-size:12px;color:#888;margin-bottom:8px">Tap a lesson to toggle attendance (green = attended, faded = cancelled, dim = not yet marked)</p>
-      <div id="week-time-grid"></div>
-    </div>
-  </div>
-
-  <!-- ANALYTICS TAB -->
-  <div class="tab" id="tab-analytics">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-        <h2 style="margin:0">Analytics</h2>
-        <div class="month-selector">
-          <button class="btn btn-secondary btn-sm" onclick="analyticsMonthPrev()">&#8592;</button>
-          <span id="analytics-month-label" style="font-weight:600;font-size:14px;min-width:110px;text-align:center"></span>
-          <button class="btn btn-secondary btn-sm" onclick="analyticsMonthNext()">&#8594;</button>
-          <button class="btn btn-secondary btn-sm" onclick="resetAnalyticsMonth()">This Month</button>
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Hourly Rate ($)</label>
+            <input type="number" id="hourlyRate" value="50">
         </div>
-      </div>
-      <div class="analytics-grid" id="analytics-summary"></div>
-    </div>
-    <div class="card" id="revenue-chart-card">
-      <h2>Monthly Revenue (from May 2026)</h2>
-      <div id="revenue-chart"></div>
-    </div>
-    <div id="analytics-students"></div>
-  </div>
-
-  <!-- PAYMENTS TAB -->
-  <div class="tab" id="tab-payments">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-        <h2 style="margin:0">Payments</h2>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <select id="payments-month-select" onchange="renderPayments()" style="width:auto;padding:7px 10px"></select>
-          <button class="btn btn-secondary btn-sm" onclick="exportToExcel()">Export CSV</button>
+        <div class="form-group">
+            <label>Duration (hours)</label>
+            <input type="number" id="duration" value="1" step="0.5">
         </div>
-      </div>
-      <div id="payments-list" class="payments-grid"></div>
-    </div>
-  </div>
-
-  <!-- SETTINGS TAB -->
-  <div class="tab" id="tab-settings">
-    <div class="card">
-      <div class="settings-section">
-        <h3>Data Management</h3>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-secondary" onclick="exportData()">Export Backup (JSON)</button>
-          <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">Import Backup (JSON)</button>
-          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-        </div>
-      </div>
-      <div class="settings-section">
-        <h3>Default Session Rate ($/hr)</h3>
-        <div style="display:flex;gap:10px;align-items:center">
-          <input type="number" id="default-rate" style="width:120px" placeholder="e.g. 50" min="0" step="0.5">
-          <button class="btn btn-primary" onclick="saveDefaultRate()">Save</button>
-        </div>
-      </div>
-      <div class="settings-section">
-        <h3>Export Sessions (Date Range)</h3>
-        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-          <div class="form-group" style="margin:0">
-            <label>From</label>
-            <input type="date" id="export-from" style="width:150px">
-          </div>
-          <div class="form-group" style="margin:0">
-            <label>To</label>
-            <input type="date" id="export-to" style="width:150px">
-          </div>
-          <button class="btn btn-primary" onclick="exportDateRange()">Export CSV</button>
-        </div>
-        <p style="font-size:12px;color:#888;margin-top:8px">Exports all sessions (recurring + one-off) in the date range with attendance status.</p>
-      </div>
-      <div class="settings-section danger-zone">
-        <h3>Danger Zone</h3>
-        <p style="font-size:13px;color:#666;margin-bottom:8px">These actions are irreversible.</p>
-        <div class="danger-btn-row">
-          <button class="btn btn-danger btn-sm" onclick="clearAttendanceOnly()">Clear All Attendance</button>
-          <button class="btn btn-danger btn-sm" onclick="clearOneOffOnly()">Clear One-off Sessions</button>
-          <button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear ALL Data</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Add/Edit Student Modal -->
-<div class="modal-overlay" id="student-modal">
-  <div class="modal">
-    <button class="close-btn" onclick="closeModal('student-modal')">&#215;</button>
-    <h2 id="student-modal-title">Add Student</h2>
-    <div class="form-group">
-      <label>Full Name *</label>
-      <input type="text" id="s-name" placeholder="Student name">
     </div>
     <div class="form-group">
-      <label>Subject</label>
-      <input type="text" id="s-subject" placeholder="e.g. Mathematics">
+        <label>Start Date <span style="font-size:12px;color:#aaa;font-weight:400;">(lessons before this date won't appear)</span></label>
+        <input type="date" id="startDate">
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Rate ($/hr)</label>
-        <input type="number" id="s-rate" placeholder="e.g. 50" min="0" step="0.5">
-      </div>
-      <div class="form-group">
-        <label>Start Date</label>
-        <input type="date" id="s-startdate">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Status</label>
-        <select id="s-status">
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Notes</label>
-      <textarea id="s-notes" class="notes-area" placeholder="Any notes about this student..."></textarea>
-    </div>
-    <div id="schedule-slots"></div>
-    <button class="btn btn-secondary btn-sm" onclick="addScheduleSlot()" style="margin-bottom:14px">+ Add Schedule Slot</button>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('student-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveStudent()">Save</button>
-    </div>
-  </div>
+    <h2 style="margin-top: 28px;">Select Weekly Schedule</h2>
+    <div id="scheduleSelector"></div>
+    <button onclick="window.addStudent()" style="margin-top: 20px;">Add Student</button>
+    <h2 style="margin-top: 32px;">My Students</h2>
+    <div id="studentsList"></div>
 </div>
 
-<!-- Mark Paid Modal -->
-<div class="modal-overlay" id="pay-modal">
-  <div class="modal">
-    <button class="close-btn" onclick="closeModal('pay-modal')">&#215;</button>
-    <h2>Mark Payment</h2>
-    <div id="pay-modal-body"></div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('pay-modal')">Cancel</button>
-      <button class="btn btn-success" onclick="savePayment()">Save Payment</button>
+<div id="calendar" class="tab-content">
+    <div class="week-nav">
+        <button class="secondary" onclick="window.previousWeek()">← Previous</button>
+        <div class="week-info" id="weekDisplay">Loading...</div>
+        <button class="secondary" onclick="window.nextWeek()">Next →</button>
     </div>
-  </div>
+    <div class="revenue-stats-grid">
+        <div class="student-card">
+            <div class="stat-label" id="calRevLabel">Revenue to Date</div>
+            <div class="stat-value" id="calendarRevenueToDate">$0.00</div>
+            <div style="font-size:10px;color:#bbb;margin-top:3px;" id="calRevNote"></div>
+        </div>
+        <div class="student-card">
+            <div class="stat-label">Projected Monthly Revenue</div>
+            <div class="stat-value" id="calendarProjectedMonthly">$0.00</div>
+        </div>
+        <div class="student-card">
+            <div class="stat-label">% of Projected Achieved</div>
+            <div class="stat-value" id="calendarRevenuePercent">0%</div>
+        </div>
+    </div>
+    <p style="font-size: 12px; color: #999; text-align: center; margin-bottom: 16px;">Click lesson to mark: <strong style="color:#1976d2">Blue</strong> = Pending · <strong style="color:#388e3c">Green</strong> = Attended · <strong style="color:#c62828">Red</strong> = Cancelled</p>
+    <div id="calendarGrid"></div>
 </div>
 
-<!-- Invoice Modal -->
-<div class="modal-overlay" id="invoice-modal">
-  <div class="modal" style="max-width:640px">
-    <button class="close-btn" onclick="closeModal('invoice-modal')">&#215;</button>
-    <h2>Invoice</h2>
-    <div id="invoice-preview" class="invoice-preview"></div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('invoice-modal')">Close</button>
-      <button class="btn btn-primary" onclick="window.print()">Print / Save PDF</button>
-    </div>
-  </div>
+<div id="analytics" class="tab-content">
+    <h2>Revenue Analytics</h2>
+    <div id="analyticsList"></div>
 </div>
 
-<!-- Attendance / lesson modal for weekly view -->
-<div class="modal-overlay" id="att-modal">
-  <div class="modal" style="max-width:360px">
-    <button class="close-btn" onclick="closeModal('att-modal')">&#215;</button>
-    <h2>Lesson</h2>
-    <div id="att-modal-body"></div>
-  </div>
+<div id="settings" class="tab-content">
+    <h2>Account</h2>
+    <div class="user-profile">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-info">
+            <div class="user-name" id="userDisplayName">—</div>
+            <div class="user-email-text" id="userEmailText">—</div>
+        </div>
+        <button class="secondary" onclick="window.signOutUser()">Sign Out</button>
+    </div>
+
+    <h2>Export</h2>
+    <div class="btn-row">
+        <button class="success-btn" onclick="window.exportToExcel()">📊 Export Sessions (Excel)</button>
+        <button onclick="window.exportData()">📥 Backup Data (JSON)</button>
+    </div>
+    <p style="font-size: 12px; color: #999; margin-top: 8px;">Excel export covers all sessions in the currently viewed week.</p>
+
+    <h2 style="margin-top: 28px;">Import</h2>
+    <button class="secondary" onclick="document.getElementById('importFile').click()">📤 Restore from JSON</button>
+    <input type="file" id="importFile" accept=".json" style="display:none;" onchange="window.importData(event)">
+    <p style="font-size: 12px; color: #f57c00; margin-top: 8px;">⚠️ Import replaces students and attendance records. Ad-hoc lessons are kept. If you see duplicate data after importing, use "Clear Attendance Only" below.</p>
+
+    <h2 style="margin-top: 28px;">Data Cleanup</h2>
+    <div class="btn-row">
+        <button class="secondary" onclick="window.clearAttendanceOnly()" style="border:1px solid #f57c00;color:#e65100;">🧹 Clear Attendance Only</button>
+        <button class="secondary" onclick="window.clearOneOffOnly()" style="border:1px solid #f57c00;color:#e65100;">🧹 Clear Ad-hoc Lessons Only</button>
+    </div>
+    <p style="font-size: 12px; color: #999; margin-top: 8px;">Use these to remove duplicate data without deleting your students or schedule.</p>
+
+    <h2 style="margin-top: 28px;">Danger Zone</h2>
+    <button class="danger-btn" onclick="window.clearAllData()">🗑️ Delete All My Data</button>
 </div>
 
-<!-- Quick add one-off modal (from calendar week view + button) -->
-<div class="modal-overlay" id="quick-oneoff-modal">
-  <div class="modal" style="max-width:380px">
-    <button class="close-btn" onclick="closeModal('quick-oneoff-modal')">&#215;</button>
-    <h2>Add One-Off Session</h2>
-    <div class="form-group">
-      <label>Student</label>
-      <select id="qo-student" style="width:100%"></select>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Date</label>
-        <input type="date" id="qo-date">
-      </div>
-      <div class="form-group">
-        <label>Time</label>
-        <input type="time" id="qo-time">
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Duration (min)</label>
-      <input type="number" id="qo-dur" value="60" min="15" step="15">
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('quick-oneoff-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveQuickOneOff()">Add Session</button>
-    </div>
-  </div>
 </div>
 
-<div id="toast"></div>
+<!-- LESSON DETAIL / EDIT MODAL -->
+<div class="modal" id="lessonModal">
+    <div class="modal-box" style="max-width:400px;">
+        <div class="modal-header">
+            <h2 id="lm_title">Lesson</h2>
+            <button class="modal-close" onclick="window.closeLessonModal()">×</button>
+        </div>
+        <div id="lm_body"></div>
+    </div>
+</div>
 
-<!-- Firebase -->
+<!-- ADD ONE-OFF LESSON MODAL -->
+<div class="modal" id="oneOffModal">
+    <div class="modal-box" style="max-width:420px;">
+        <div class="modal-header">
+            <h2 id="oom_title">Add Lesson</h2>
+            <button class="modal-close" onclick="document.getElementById('oneOffModal').classList.remove('active')">×</button>
+        </div>
+        <div id="oom_body"></div>
+    </div>
+</div>
+
+<!-- EDIT STUDENT MODAL -->
+<div class="modal" id="editModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Edit Student</h2>
+            <button class="modal-close" onclick="window.closeEditModal()">×</button>
+        </div>
+        <div id="editModalContent"></div>
+    </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <script>
-// ── Firebase init ──────────────────────────────────────────────
-const firebaseConfig={
-  apiKey:"AIzaSyCcU_6u-zNERCr5PTkau8O1TeoJcZNdo0E",
-  authDomain:"tuition-scheduler-672d3.firebaseapp.com",
-  projectId:"tuition-scheduler-672d3",
-  storageBucket:"tuition-scheduler-672d3.appspot.com",
-  messagingSenderId:"190294013358",
-  appId:"1:190294013308:web:1c962d251c8bf3a82d843f"
+console.log('Script starting...');
+
+// FIREBASE CONFIG
+const firebaseConfig = {
+    apiKey: "AIzaSyCcU_6u-zNERCr5PTkau8O1TeoJcZNdo0E",
+    authDomain: "tuition-scheduler-672d3.firebaseapp.com",
+    projectId: "tuition-scheduler-672d3",
+    storageBucket: "tuition-scheduler-672d3.firebasestorage.app",
+    messagingSenderId: "190294013358",
+    appId: "1:190294013308:web:1c962d251c8bf3a82d843f"
 };
-firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth();
-const db=firebase.firestore();
 
-// ── State ──────────────────────────────────────────────────────
-let uid=null, students=[], attendance={}, oneOffs=[], paymentRecords={};
-let currentWeek=mondayOfWeek(new Date());
-let currentMonthView=new Date(new Date().getFullYear(),new Date().getMonth(),1);
-let calView='month';
-let currentWeekCal=mondayOfWeek(new Date());
-let analyticsMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
-let defaultRate=50, editingStudentId=null, payModalData=null;
-const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+try {
+    firebase.initializeApp(firebaseConfig);
+    console.log('Firebase initialized');
+} catch(e) {
+    console.error('Firebase error:', e);
+}
 
-// ── Helpers ────────────────────────────────────────────────────
-function mondayOfWeek(d){
-  const day=d.getDay(); // 0=Sun
-  const diff=day===0?-6:1-day;
-  const m=new Date(d);m.setHours(0,0,0,0);m.setDate(m.getDate()+diff);return m;
-}
-function weekStartKey(d){return d.toISOString().split('T')[0];}
-function toLocalDateKey(d){
-  const y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,'0'),dy=String(d.getDate()).padStart(2,'0');
-  return `${y}-${mo}-${dy}`;
-}
-function fmt(d){return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
-function fmtMon(d){return d.toLocaleDateString('en-GB',{month:'long',year:'numeric'});}
-function jsDay(slotDay){return slotDay===6?0:slotDay+1;} // slot 0=Mon..6=Sun → JS 0=Sun
-function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',dur);}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function col(idx){const c=['#e8eaf6','#fce4ec','#e8f5e9','#fff9c4','#e0f7fa','#fbe9e7','#f3e5f5'];return c[idx%c.length];}
+const auth = firebase.auth();
+const db = firebase.firestore();
+const provider = new firebase.auth.GoogleAuthProvider();
 
-// ── Auth ───────────────────────────────────────────────────────
-async function signIn(){
-  try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}
-  catch(e){toast('Sign-in failed: '+e.message);}
+// STATE
+let currentUser = null;
+let students = [];
+let attendanceRecords = {};
+let sessionData = {};
+let oneOffLessons = {};
+let currentWeekStart = getMonday(new Date());
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const TIMES = (()=>{const t=[];for(let h=8;h<=23;h++){['00','15','30','45'].forEach(m=>{t.push(`${String(h).padStart(2,'0')}:${m}`);});}t.push('00:00');return t;})();
+
+// FUNCTIONS
+function getMonday(d) {
+    d = new Date(d);
+    const day = d.getDay();
+    d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+    d.setHours(0, 0, 0, 0);
+    return d;
 }
-function signOut(){auth.signOut();}
-auth.onAuthStateChanged(async u=>{
-  if(u){
-    uid=u.uid;
-    document.getElementById('user-name').textContent=u.displayName||u.email;
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='block';
-    await loadAll();
-    renderStudents();renderAttendance();renderCalendar();renderAnalytics();renderPayments();populateOneOffStudents();loadDefaultRate();
-  } else {
-    uid=null;
-    document.getElementById('login-screen').style.display='flex';
-    document.getElementById('app').style.display='none';
-  }
+
+window.signInWithGoogle = function() {
+    console.log('Signing in...');
+    auth.signInWithPopup(provider).catch(e => {
+        console.error('Auth error:', e);
+        alert('Error: ' + e.message);
+    });
+};
+
+window.signOutUser = function() {
+    if (confirm('Sign out?')) {
+        auth.signOut();
+    }
+};
+
+auth.onAuthStateChanged(user => {
+    console.log('Auth state changed:', user ? user.email : 'none');
+    if (user) {
+        currentUser = user;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        document.getElementById('userDisplayName').textContent = user.displayName || user.email;
+        document.getElementById('userEmailText').textContent = user.email;
+        const initial = (user.displayName || user.email || '?')[0].toUpperCase();
+        document.getElementById('userAvatar').textContent = initial;
+        setupListeners();
+        renderScheduleSelector();
+        renderCalendar();
+    } else {
+        currentUser = null;
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+    }
 });
 
-// ── Firestore helpers ─────────────────────────────────────────
-function col_ref(name){return db.collection('users').doc(uid).collection(name);}
-async function loadAll(){
-  const [sSnap,aSnap,oSnap,pSnap]=await Promise.all([
-    col_ref('students').get(),
-    col_ref('attendance').get(),
-    col_ref('one_off').get(),
-    db.collection('users').doc(uid).collection('payments').doc('records').get()
-  ]);
-  students=sSnap.docs.map(d=>{
-    const data=d.data();
-    // Normalise legacy field names (studentName→name, hourlyRate→rate)
-    if(!data.name&&data.studentName)data.name=data.studentName;
-    if(!data.rate&&data.hourlyRate)data.rate=data.hourlyRate;
-    // Normalise schedule: old format may have duration as top-level hours, slots without duration
-    if(data.schedule){
-      data.schedule=data.schedule.map(sl=>({
-        ...sl,
-        duration:sl.duration||(data.duration?data.duration*60:60)
-      }));
+function isAnalyticsActive() {
+    return document.getElementById('analytics').classList.contains('active');
+}
+
+function setupListeners() {
+    db.collection('users').doc(currentUser.uid).collection('students').onSnapshot(snap => {
+        students = snap.docs.map(d => d.data());
+        renderStudents();
+        renderCalendar();
+        if (isAnalyticsActive()) renderAnalytics();
+    });
+
+    db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').onSnapshot(snap => {
+        attendanceRecords = snap.exists ? (snap.data().records || {}) : {};
+        renderCalendar();
+        if (isAnalyticsActive()) renderAnalytics();
+    });
+
+    db.collection('users').doc(currentUser.uid).collection('session_data').doc('overrides').onSnapshot(snap => {
+        sessionData = snap.exists ? (snap.data().data || {}) : {};
+        renderCalendar();
+    });
+
+    db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').onSnapshot(snap => {
+        oneOffLessons = snap.exists ? (snap.data().lessons || {}) : {};
+        renderCalendar();
+        if (isAnalyticsActive()) renderAnalytics();
+    });
+}
+
+function renderScheduleSelector() {
+    let html = '<div style="display:grid;gap:12px;">';
+    DAYS.forEach((day, i) => {
+        html += `<div style="padding:12px;background:#f9f9f9;border-radius:6px;">
+            <label style="margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" id="day_${i}" onchange="toggleDay(${i})">
+                <span>${day}</span>
+            </label>
+            <div id="times_${i}" style="display:none;margin-top:8px;">
+                <select id="time_${i}">
+                    ${TIMES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                </select>
+            </div>
+        </div>`;
+    });
+    document.getElementById('scheduleSelector').innerHTML = html + '</div>';
+}
+
+window.toggleDay = function(i) {
+    const cb = document.getElementById(`day_${i}`);
+    document.getElementById(`times_${i}`).style.display = cb.checked ? 'block' : 'none';
+};
+
+window.addStudent = async function() {
+    const name = document.getElementById('studentName').value.trim();
+    const subject = document.getElementById('subject').value.trim();
+    const rate = parseFloat(document.getElementById('hourlyRate').value);
+    const duration = parseFloat(document.getElementById('duration').value);
+
+    if (!name || !subject || !rate || !duration) {
+        alert('Fill all fields');
+        return;
     }
-    return{...data, id:d.id};   // id must come AFTER spread — old docs stored numeric id inside the document
-  });
-  attendance={};
-  aSnap.docs.forEach(d=>attendance[d.id]=d.data());
-  oneOffs=oSnap.docs.map(d=>{
-    const data=d.data();
-    const isLegacy=!!data.dateKey;
-    return{
-      id:d.id,...data,
-      date:data.date||data.dateKey||'',
-      studentId:String(data.studentId||''),
-      // Legacy duration was in hours (e.g. 1.5); new is in minutes (e.g. 90)
-      duration:isLegacy&&data.duration&&data.duration<10?Math.round(data.duration*60):data.duration||60,
+
+    const schedule = [];
+    DAYS.forEach((day, i) => {
+        if (document.getElementById(`day_${i}`).checked) {
+            schedule.push({
+                day: i,
+                dayName: day,
+                time: document.getElementById(`time_${i}`).value
+            });
+        }
+    });
+
+    if (schedule.length === 0) {
+        alert('Select at least one day');
+        return;
+    }
+
+    const student = {
+        id: Date.now(),
+        studentName: name,
+        subject,
+        hourlyRate: rate,
+        duration,
+        schedule,
+        startDate: document.getElementById('startDate').value || toLocalDateKey(new Date()),
+        createdAt: new Date().toISOString()
     };
-  });
-  paymentRecords=pSnap.exists?(pSnap.data().records||{}):{};
-}
 
-// ── Default rate ──────────────────────────────────────────────
-async function loadDefaultRate(){
-  const doc=await db.collection('users').doc(uid).collection('settings').doc('prefs').get();
-  if(doc.exists){defaultRate=doc.data().defaultRate||50;}
-  document.getElementById('default-rate').value=defaultRate;
-}
-async function saveDefaultRate(){
-  const v=parseFloat(document.getElementById('default-rate').value)||50;
-  defaultRate=v;
-  await db.collection('users').doc(uid).collection('settings').doc('prefs').set({defaultRate:v},{merge:true});
-  toast('Default rate saved');
-}
-
-// ── Students CRUD ─────────────────────────────────────────────
-function openAddStudent(){
-  editingStudentId=null;
-  document.getElementById('student-modal-title').textContent='Add Student';
-  document.getElementById('s-name').value='';
-  document.getElementById('s-subject').value='';
-  document.getElementById('s-rate').value='';
-  document.getElementById('s-startdate').value='';
-  document.getElementById('s-status').value='active';
-  document.getElementById('s-notes').value='';
-  document.getElementById('schedule-slots').innerHTML='';
-  addScheduleSlot();
-  openModal('student-modal');
-}
-function openEditStudent(id){
-  const s=students.find(x=>x.id===id);if(!s)return;
-  editingStudentId=id;
-  document.getElementById('student-modal-title').textContent='Edit Student';
-  document.getElementById('s-name').value=s.name||'';
-  document.getElementById('s-subject').value=s.subject||'';
-  document.getElementById('s-rate').value=s.rate||'';
-  document.getElementById('s-startdate').value=s.startDate||'';
-  document.getElementById('s-status').value=s.status||'active';
-  document.getElementById('s-notes').value=s.notes||'';
-  document.getElementById('schedule-slots').innerHTML='';
-  (s.schedule||[]).forEach(slot=>addScheduleSlot(slot));
-  if(!(s.schedule||[]).length)addScheduleSlot();
-  openModal('student-modal');
-}
-function addScheduleSlot(slot){
-  const wrap=document.getElementById('schedule-slots');
-  const div=document.createElement('div');
-  div.className='form-row';div.style.marginBottom='10px';div.style.alignItems='flex-end';
-  div.innerHTML=`
-    <div class="form-group" style="margin:0">
-      <label>Day</label>
-      <select class="slot-day">
-        ${DAYS.map((d,i)=>`<option value="${i}"${slot&&slot.day===i?' selected':''}>${d}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group" style="margin:0">
-      <label>Time</label>
-      <input type="time" class="slot-time" value="${slot&&slot.time||'09:00'}">
-    </div>
-    <div class="form-group" style="margin:0">
-      <label>Duration (min)</label>
-      <input type="number" class="slot-dur" value="${slot&&slot.duration||60}" min="15" step="15" style="width:90px">
-    </div>
-    <button type="button" class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentElement.remove()">&#215;</button>`;
-  wrap.appendChild(div);
-}
-function getScheduleSlots(){
-  return Array.from(document.querySelectorAll('#schedule-slots .form-row')).map(row=>({
-    day:parseInt(row.querySelector('.slot-day').value),
-    time:row.querySelector('.slot-time').value,
-    duration:parseInt(row.querySelector('.slot-dur').value)||60
-  }));
-}
-async function saveStudent(){
-  const name=document.getElementById('s-name').value.trim();
-  if(!name){toast('Name is required');return;}
-  const data={
-    name,
-    subject:document.getElementById('s-subject').value.trim(),
-    rate:parseFloat(document.getElementById('s-rate').value)||defaultRate,
-    startDate:document.getElementById('s-startdate').value||null,
-    status:document.getElementById('s-status').value,
-    notes:document.getElementById('s-notes').value.trim(),
-    schedule:getScheduleSlots()
-  };
-  if(editingStudentId){
-    await col_ref('students').doc(editingStudentId).update(data);
-    const i=students.findIndex(x=>x.id===editingStudentId);
-    if(i>=0)students[i]={id:editingStudentId,...data};
-  } else {
-    const ref=await col_ref('students').add(data);
-    students.push({id:ref.id,...data});
-  }
-  closeModal('student-modal');
-  renderStudents();renderAttendance();renderCalendar();renderPayments();populateOneOffStudents();
-  toast('Student saved');
-}
-async function deleteStudent(id){
-  if(!confirm('Delete this student? This will not remove their attendance records.'))return;
-  await col_ref('students').doc(id).delete();
-  students=students.filter(x=>x.id!==id);
-  renderStudents();renderAttendance();renderCalendar();renderPayments();populateOneOffStudents();
-  toast('Student deleted');
-}
-
-// ── Student list render ───────────────────────────────────────
-let _filterVal='';
-function filterStudents(v){_filterVal=v.toLowerCase();renderStudents();}
-function renderStudents(){
-  const list=document.getElementById('student-list');
-  const filtered=students.filter(s=>!_filterVal||(s.name||'').toLowerCase().includes(_filterVal)||(s.subject||'').toLowerCase().includes(_filterVal));
-  if(!filtered.length){list.innerHTML='<div style="text-align:center;color:#999;padding:30px">No students found</div>';return;}
-  list.innerHTML=filtered.map(s=>`
-    <div class="student-card">
-      <div class="student-info">
-        <h3>${s.name}</h3>
-        ${s.subject?`<p>${s.subject}</p>`:''}
-        <p style="color:#4a4a8a;font-weight:500">$${s.rate||defaultRate}/hr</p>
-        ${s.notes?`<p style="font-style:italic;color:#888;font-size:12px">${s.notes.substring(0,80)}${s.notes.length>80?'…':''}</p>`:''}
-        <div class="student-badges">
-          <span class="badge badge-${s.status||'active'}">${s.status||'active'}</span>
-          ${(s.schedule||[]).map(sl=>`<span class="badge badge-day">${DAYS[sl.day]} ${sl.time}</span>`).join('')}
-        </div>
-      </div>
-      <div class="student-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openEditStudent('${s.id}')">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Delete</button>
-      </div>
-    </div>`).join('');
-}
-
-// ── Attendance ────────────────────────────────────────────────
-function prevWeek(){currentWeek=new Date(currentWeek);currentWeek.setDate(currentWeek.getDate()-7);renderAttendance();}
-function nextWeek(){currentWeek=new Date(currentWeek);currentWeek.setDate(currentWeek.getDate()+7);renderAttendance();}
-function goToThisWeek(){currentWeek=mondayOfWeek(new Date());renderAttendance();}
-function renderAttendance(){
-  const wk=weekStartKey(currentWeek);
-  const weekEnd=new Date(currentWeek);weekEnd.setDate(weekEnd.getDate()+6);
-  document.getElementById('week-label').textContent=`${fmt(currentWeek)} – ${fmt(weekEnd)}`;
-  const activeStudents=students.filter(s=>(s.status||'active')==='active'&&(s.schedule||[]).length>0);
-  const thead=document.querySelector('#att-table thead');
-  const tbody=document.querySelector('#att-table tbody');
-  // build column days
-  const cols=[];
-  for(let i=0;i<7;i++){
-    const d=new Date(currentWeek);d.setDate(d.getDate()+i);
-    cols.push({d,label:DAYS[i]+' '+d.getDate()});
-  }
-  thead.innerHTML='<tr><th>Student</th>'+cols.map(c=>`<th>${c.label}</th>`).join('')+'</tr>';
-  if(!activeStudents.length){tbody.innerHTML='<tr><td colspan="8" style="padding:20px;text-align:center;color:#999">No active students with scheduled slots</td></tr>';return;}
-  tbody.innerHTML=activeStudents.map(s=>{
-    const cells=cols.map((c,i)=>{
-      const dayIdx=i;// 0=Mon
-      const hasSlot=(s.schedule||[]).some(sl=>sl.day===dayIdx);
-      if(!hasSlot)return '<td style="color:#ddd">–</td>';
-      const key=`${s.id}_${wk}_${dayIdx}`;
-      const checked=attendance[key]&&attendance[key].present?'checked':'';
-      return `<td><input type="checkbox" class="att-check" ${checked} onchange="toggleAttendance('${s.id}','${wk}',${dayIdx},this.checked)"></td>`;
-    });
-    return `<tr><td style="font-weight:500;white-space:nowrap">${s.name}</td>${cells.join('')}</tr>`;
-  }).join('');
-}
-async function toggleAttendance(studentId,wk,dayIdx,present){
-  const key=`${studentId}_${wk}_${dayIdx}`;
-  attendance[key]={present,studentId,weekStart:wk,dayIndex:dayIdx};
-  await col_ref('attendance').doc(key).set(attendance[key]);
-}
-
-// ── One-off sessions ─────────────────────────────────────────
-function populateOneOffStudents(){
-  const sel=document.getElementById('oneoff-student');
-  sel.innerHTML=students.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  renderOneOffs();
-}
-async function addOneOff(){
-  const studentId=document.getElementById('oneoff-student').value;
-  const date=document.getElementById('oneoff-date').value;
-  const time=document.getElementById('oneoff-time').value;
-  const duration=parseInt(document.getElementById('oneoff-dur').value)||60;
-  if(!studentId||!date||!time){toast('Please fill in all fields');return;}
-  const data={studentId,date,time,duration,createdAt:Date.now()};
-  const ref=await col_ref('one_off').add(data);
-  oneOffs.push({id:ref.id,...data});
-  renderOneOffs();renderCalendar();
-  toast('One-off session added');
-}
-async function deleteOneOff(id){
-  await col_ref('one_off').doc(id).delete();
-  oneOffs=oneOffs.filter(x=>x.id!==id);
-  renderOneOffs();renderCalendar();
-  toast('One-off removed');
-}
-function renderOneOffs(){
-  const sorted=[...oneOffs].sort((a,b)=>a.date>b.date?-1:1);
-  const el=document.getElementById('oneoff-list');
-  if(!sorted.length){el.innerHTML='<div style="color:#999;font-size:13px">No one-off sessions</div>';return;}
-  el.innerHTML=sorted.slice(0,10).map(o=>{
-    const s=students.find(x=>x.id===o.studentId);
-    return `<div class="oneoff-item">
-      <span><strong>${s?s.name:'Unknown'}</strong> — ${o.date} at ${o.time} (${o.duration} min)</span>
-      <button class="btn btn-danger btn-sm" onclick="deleteOneOff('${o.id}')">&#215;</button>
-    </div>`;
-  }).join('');
-}
-
-// ── Calendar ──────────────────────────────────────────────────
-function prevMonth(){
-  const m=currentMonthView.getMonth(),y=currentMonthView.getFullYear();
-  currentMonthView=m===0?new Date(y-1,11,1):new Date(y,m-1,1);
-  renderCalendar();
-}
-function nextMonth(){
-  const m=currentMonthView.getMonth(),y=currentMonthView.getFullYear();
-  currentMonthView=m===11?new Date(y+1,0,1):new Date(y,m+1,1);
-  renderCalendar();
-}
-function renderCalendar(){
-  document.getElementById('cal-month-label').textContent=fmtMon(currentMonthView);
-  const y=currentMonthView.getFullYear(),m=currentMonthView.getMonth();
-  const firstDay=new Date(y,m,1);
-  const lastDay=new Date(y,m+1,0);
-  const todayStr=toLocalDateKey(new Date());
-  // Build lesson map: dateStr → [{studentName, time, color, duration}]
-  const lessonMap={};
-  // Regular schedule
-  students.filter(s=>(s.status||'active')==='active').forEach((s,si)=>{
-    (s.schedule||[]).forEach(slot=>{
-      // iterate every occurrence in month
-      for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
-        const jsDayNeeded=jsDay(slot.day);
-        if(d.getDay()===jsDayNeeded){
-          const dk=toLocalDateKey(new Date(d));
-          if(!lessonMap[dk])lessonMap[dk]=[];
-          lessonMap[dk].push({name:s.name,time:slot.time,duration:slot.duration,studentIdx:si});
-        }
-      }
-    });
-  });
-  // One-offs
-  oneOffs.forEach(o=>{
-    const s=students.find(x=>x.id===o.studentId);
-    if(!s)return;
-    if(!lessonMap[o.date])lessonMap[o.date]=[];
-    lessonMap[o.date].push({name:s.name+'*',time:o.time,duration:o.duration,studentIdx:students.indexOf(s)});
-  });
-  // Sort by time
-  Object.keys(lessonMap).forEach(dk=>lessonMap[dk].sort((a,b)=>a.time>b.time?1:-1));
-  // 3-pass overlap detection
-  Object.keys(lessonMap).forEach(dk=>{
-    const lessons=lessonMap[dk];
-    lessons.forEach(l=>{l._overlapClass=0;});
-    for(let i=0;i<lessons.length;i++){
-      const a=lessons[i];
-      const [ah,am]=a.time.split(':').map(Number);
-      const aEnd=ah*60+am+a.duration;
-      for(let j=i+1;j<lessons.length;j++){
-        const b=lessons[j];
-        const [bh,bm]=b.time.split(':').map(Number);
-        const bStart=bh*60+bm;
-        if(bStart<aEnd){b._overlapClass=Math.min(b._overlapClass+1,2);}
-      }
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(student.id)).set(student);
+        document.getElementById('studentName').value = '';
+        document.getElementById('subject').value = '';
+        alert('Student added!');
+    } catch(e) {
+        alert('Error: ' + e.message);
     }
-  });
-  // Render grid
-  const grid=document.getElementById('cal-grid');
-  let html=DAYS.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
-  // Start padding — firstDay.getDay() is JS (0=Sun), we want Mon-first
-  const startPad=firstDay.getDay()===0?6:firstDay.getDay()-1;
-  for(let p=0;p<startPad;p++)html+='<div class="cal-cell other-month"></div>';
-  for(let d=1;d<=lastDay.getDate();d++){
-    const dk=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday=dk===todayStr;
-    const lessons=(lessonMap[dk]||[]);
-    const lessonHtml=lessons.map(l=>{
-      const[lh,lm]=(l.time||'0:0').split(':').map(Number);
-      const endM=lh*60+lm+(l.duration||60);
-      const endStr=`${String(Math.floor(endM/60)).padStart(2,'0')}:${String(endM%60).padStart(2,'0')}`;
-      return `<div class="cal-lesson overlap-${l._overlapClass}" title="${l.name} ${l.time}–${endStr}">${l.time}–${endStr} ${l.name.length>8?l.name.substring(0,8)+'…':l.name}</div>`;
+};
+
+function calcEndTime(startTime, durationHours) {
+    const [h, m] = startTime.split(':').map(Number);
+    const totalMins = h * 60 + m + Math.round(durationHours * 60);
+    const eh = Math.floor(totalMins / 60) % 24;
+    const em = totalMins % 60;
+    return `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+}
+
+function toLocalDateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function renderStudents() {
+    if (students.length === 0) {
+        document.getElementById('studentsList').innerHTML = '<div class="empty-state">No students yet</div>';
+        return;
+    }
+    const cards = students.map(s => {
+        const total = (s.schedule.length * s.duration * s.hourlyRate).toFixed(2);
+        const slots = s.schedule.map(slot => {
+            const subj = slot.subject || s.subject;
+            const end = calcEndTime(slot.time, s.duration);
+            return `<div class="lesson-slot">
+                <input class="slot-subject-input" value="${subj}"
+                    onblur="window.updateSlotSubject(${s.id},${slot.day},this.value)"
+                    title="Click to edit subject">
+                <div class="lesson-slot-day">${slot.dayName.slice(0,3)}</div>
+                <select class="slot-time-select" onchange="window.updateSlotTime(${s.id},${slot.day},this.value)">
+                    ${TIMES.map(t => `<option value="${t}"${t===slot.time?' selected':''}>${t}</option>`).join('')}
+                </select>
+                <div style="font-size:10px;color:#888;margin-top:2px;">ends ${end}</div>
+            </div>`;
+        }).join('');
+
+        return `<div class="student-card" style="padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+                <div>
+                    <div style="font-size:15px;font-weight:700;color:#1976d2;">${s.studentName}</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">${s.duration}h @ $${s.hourlyRate}/hr &nbsp;·&nbsp; <strong style="color:#1565c0;">$${total}/wk</strong>${s.startDate ? ` &nbsp;·&nbsp; from ${new Date(s.startDate + 'T00:00:00').toLocaleDateString('en-SG',{day:'numeric',month:'short',year:'numeric'})}` : ''}</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                    <button onclick="window.editStudent(${s.id})" style="padding:5px 10px;font-size:12px;">Edit</button>
+                    <button class="secondary" onclick="window.deleteStudent(${s.id})" style="padding:5px 10px;font-size:12px;">Delete</button>
+                </div>
+            </div>
+            <div class="lesson-slots">${slots}</div>
+        </div>`;
     }).join('');
-    html+=`<div class="cal-cell${isToday?' today':''}"><div class="cal-date">${d}</div>${lessonHtml}</div>`;
-  }
-  // End padding
-  const endDay=lastDay.getDay()===0?0:7-lastDay.getDay();
-  for(let p=0;p<endDay;p++)html+='<div class="cal-cell other-month"></div>';
-  grid.innerHTML=html;
-  updateCalendarRevenueSummary();
+    document.getElementById('studentsList').innerHTML = `<div class="students-grid">${cards}</div>`;
 }
 
-// ── Weekly time-grid view ─────────────────────────────────────
-function setCalView(v){
-  calView=v;
-  document.getElementById('cal-month-section').style.display=v==='month'?'':'none';
-  document.getElementById('cal-week-section').style.display=v==='week'?'':'none';
-  document.getElementById('cal-view-month-btn').className='btn btn-sm '+(v==='month'?'btn-primary':'btn-secondary');
-  document.getElementById('cal-view-week-btn').className='btn btn-sm '+(v==='week'?'btn-primary':'btn-secondary');
-  if(v==='month')renderCalendar();else renderWeekView();
-}
-function prevWeekCal(){currentWeekCal=new Date(currentWeekCal);currentWeekCal.setDate(currentWeekCal.getDate()-7);renderWeekView();}
-function nextWeekCal(){currentWeekCal=new Date(currentWeekCal);currentWeekCal.setDate(currentWeekCal.getDate()+7);renderWeekView();}
-function goToThisWeekCal(){currentWeekCal=mondayOfWeek(new Date());renderWeekView();}
-function calcEndTime(startTime,durationMins){
-  const[h,m]=(startTime||'0:0').split(':').map(Number);
-  const total=h*60+m+durationMins;
-  return`${String(Math.floor(total/60)%24).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
-}
-function renderWeekView(){
-  const START_HOUR=8,END_HOUR=24,HOUR_PX=60,TOTAL_HOURS=END_HOUR-START_HOUR;
-  const weekEnd=new Date(currentWeekCal);weekEnd.setDate(weekEnd.getDate()+6);
-  document.getElementById('week-cal-label').textContent=`${currentWeekCal.toLocaleDateString()} – ${weekEnd.toLocaleDateString()}`;
-  const wk=weekStartKey(currentWeekCal);
-  const jsDayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const weekLessons=Array(7).fill(null).map(()=>[]);
-  students.filter(s=>(s.status||'active')==='active').forEach(s=>{
-    (s.schedule||[]).forEach(slot=>{
-      const key=`${s.id}_${wk}_${slot.day}`;
-      const slotDate=new Date(currentWeekCal);slotDate.setDate(slotDate.getDate()+slot.day);
-      if(s.startDate&&toLocalDateKey(slotDate)<s.startDate)return;
-      const rec=attendance[key];
-      const status=rec?(rec.present?'attended':'cancelled'):null;
-      weekLessons[slot.day].push({isOneOff:false,studentId:s.id,origDayIndex:slot.day,
-        studentName:s.name,subject:s.subject||'',time:slot.time||'',duration:slot.duration||60,
-        revenue:((slot.duration||60)/60*(s.rate||defaultRate)).toFixed(2),status});
-    });
-  });
-  oneOffs.forEach(o=>{
-    const oDate=new Date((o.date||'2000-01-01')+'T00:00:00');
-    const diff=Math.round((oDate-currentWeekCal)/86400000);
-    if(diff>=0&&diff<7){
-      const s=students.find(x=>x.id===o.studentId);
-      weekLessons[diff].push({isOneOff:true,oneOffId:o.id,studentId:o.id,
-        studentName:s?s.name:'Unknown',subject:s?s.subject||'':'',
-        time:o.time||'',duration:o.duration||60,
-        revenue:((o.duration||60)/60*((s&&s.rate)||defaultRate)).toFixed(2),status:'attended'});
+window.updateSlotTime = async function(studentId, dayIndex, newTime) {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+    const updated = { ...student, schedule: student.schedule.map(slot =>
+        slot.day === dayIndex ? { ...slot, time: newTime } : slot) };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(studentId)).set(updated);
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.updateSlotSubject = async function(studentId, dayIndex, newSubject) {
+    const student = students.find(s => s.id === studentId);
+    if (!student || !newSubject.trim()) return;
+    const updated = { ...student, schedule: student.schedule.map(slot =>
+        slot.day === dayIndex ? { ...slot, subject: newSubject.trim() } : slot) };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(studentId)).set(updated);
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.editStudent = function(studentId) {
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    let schedHtml = DAYS.map((day, i) => {
+        const slot = s.schedule.find(sl => sl.day === i);
+        const checked = slot ? 'checked' : '';
+        const selTime = slot ? slot.time : '14:00';
+        const selSubj = slot ? (slot.subject || s.subject) : s.subject;
+        return `<div style="padding:10px;background:#f9f9f9;border-radius:6px;margin-bottom:8px;">
+            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;">
+                <input type="checkbox" id="ed_day_${i}" ${checked} onchange="document.getElementById('ed_times_${i}').style.display=this.checked?'block':'none'">
+                <span style="font-weight:500;">${day}</span>
+            </label>
+            <div id="ed_times_${i}" style="display:${slot?'block':'none'};margin-top:8px;display:${slot?'grid':'none'};grid-template-columns:1fr 1fr;gap:8px;">
+                <div><label style="font-size:11px;color:#999;">Time</label>
+                    <select id="ed_time_${i}" style="width:100%;">
+                        ${TIMES.map(t=>`<option value="${t}"${t===selTime?' selected':''}>${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div><label style="font-size:11px;color:#999;">Subject</label>
+                    <input type="text" id="ed_subj_${i}" value="${selSubj}" style="width:100%;">
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('editModalContent').innerHTML = `
+        <div class="form-group"><label>Student Name</label><input type="text" id="ed_name" value="${s.studentName}"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="ed_rate" value="${s.hourlyRate}" min="0" step="5"></div>
+            <div class="form-group"><label>Duration (hours)</label><input type="number" id="ed_dur" value="${s.duration}" min="0.5" step="0.5"></div>
+        </div>
+        <div class="form-group"><label>Start Date</label><input type="date" id="ed_startDate" value="${s.startDate || ''}"></div>
+        <div style="font-size:14px;font-weight:600;margin:16px 0 10px;">Weekly Schedule</div>
+        ${schedHtml}
+        <div style="display:flex;gap:8px;margin-top:20px;">
+            <button onclick="window.saveEditStudent(${studentId})" style="flex:1;">Save Changes</button>
+            <button class="secondary" onclick="window.closeEditModal()" style="flex:1;">Cancel</button>
+        </div>`;
+    document.getElementById('editModal').classList.add('active');
+};
+
+window.saveEditStudent = async function(studentId) {
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    const name = document.getElementById('ed_name').value.trim();
+    const rate = parseFloat(document.getElementById('ed_rate').value);
+    const dur  = parseFloat(document.getElementById('ed_dur').value);
+    if (!name || !rate || !dur) { alert('Fill all fields'); return; }
+    const schedule = DAYS.reduce((acc, day, i) => {
+        if (document.getElementById(`ed_day_${i}`).checked) {
+            acc.push({ day: i, dayName: day,
+                time: document.getElementById(`ed_time_${i}`).value,
+                subject: document.getElementById(`ed_subj_${i}`).value.trim() || name });
+        }
+        return acc;
+    }, []);
+    if (schedule.length === 0) { alert('Select at least one day'); return; }
+    const startDate = document.getElementById('ed_startDate').value;
+    const updated = { ...s, studentName: name, hourlyRate: rate, duration: dur, schedule, startDate: startDate || s.startDate || '' };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(studentId)).set(updated);
+        window.closeEditModal();
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.closeEditModal = function() {
+    document.getElementById('editModal').classList.remove('active');
+};
+
+window.deleteStudent = async function(id) {
+    if (!confirm('Delete?')) return;
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(id)).delete();
+    } catch(e) {
+        alert('Error: ' + e.message);
     }
-  });
-  let labelsHtml='<div class="tg-label-header"></div>';
-  for(let h=START_HOUR;h<=END_HOUR;h++)labelsHtml+=`<div class="tg-label">${h===24?'00':String(h).padStart(2,'0')}:00</div>`;
-  labelsHtml+='<div class="tg-label-footer"></div>';
-  let daysHtml='';
-  for(let i=0;i<7;i++){
-    const dayDate=new Date(currentWeekCal);dayDate.setDate(dayDate.getDate()+i);
-    const isToday=dayDate.toDateString()===new Date().toDateString();
-    const dayLessons=weekLessons[i];
-    let linesHtml='';
-    for(let h=0;h<=TOTAL_HOURS;h++)linesHtml+=`<div class="tg-hour-line" style="top:${h*HOUR_PX}px"></div>`;
-    const enriched=dayLessons.map(lesson=>{
-      const[lh,lm]=(lesson.time||'0:0').split(':').map(Number);
-      const hourOffset=lh===0?24:lh;
-      const startMins=hourOffset*60+lm;
-      const onclick=lesson.isOneOff
-        ?`openOneOffAttModal('${lesson.oneOffId}')`
-        :`openLessonAttModal('${lesson.studentId}','${wk}',${lesson.origDayIndex})`;
-      return{...lesson,startMins,durationMins:lesson.duration,onclick};
+};
+
+function renderCalendar() {
+    updateCalendarRevenueSummary();
+
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    document.getElementById('weekDisplay').textContent = `${currentWeekStart.toLocaleDateString()} – ${weekEnd.toLocaleDateString()}`;
+
+    const weekStartKey = currentWeekStart.toISOString().split('T')[0];
+    const START_HOUR = 8;
+    const END_HOUR = 24;
+    const HOUR_PX = 60;
+    const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+    const weekLessons = Array(7).fill(null).map(() => []);
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            const key = `${s.id}_${weekStartKey}_${slot.day}`;
+            const ovr = sessionData[key] || {};
+            // Compute effective lesson date and skip if before student start date
+            const slotDate = new Date(currentWeekStart);
+            slotDate.setDate(slotDate.getDate() + slot.day);
+            const effectiveDateKey = ovr.rescheduleDate || toLocalDateKey(slotDate);
+            if (s.startDate && effectiveDateKey < s.startDate) return;
+            let renderDay = slot.day;
+            if (ovr.rescheduleDate) {
+                const rd = new Date(ovr.rescheduleDate + 'T00:00:00');
+                const diff = Math.round((rd - currentWeekStart) / 86400000);
+                if (diff >= 0 && diff < 7) renderDay = diff;
+                else return; // moved to a different week — skip this week
+            }
+            weekLessons[renderDay].push({
+                isOneOff: false,
+                studentId: s.id,
+                origDayIndex: slot.day,
+                studentName: s.studentName,
+                subject: slot.subject || s.subject,
+                time: slot.time,
+                duration: s.duration,
+                revenue: (s.duration * s.hourlyRate).toFixed(2),
+                status: attendanceRecords[key] || null
+            });
+        });
     });
-    enriched.sort((a,b)=>a.startMins-b.startMins);
-    const colEnds=[];
-    enriched.forEach(l=>{let c=0;while(c<colEnds.length&&colEnds[c]>l.startMins)c++;colEnds[c]=l.startMins+l.durationMins;l._col=c;});
-    enriched.forEach(l=>{let mx=l._col;enriched.forEach(o=>{if(o===l)return;if(o.startMins<l.startMins+l.durationMins&&o.startMins+o.durationMins>l.startMins)mx=Math.max(mx,o._col);});l._totalCols=mx+1;});
-    let lessonsHtml='';
-    enriched.forEach(l=>{
-      const topPx=(l.startMins-START_HOUR*60)/60*HOUR_PX;
-      const heightPx=Math.max(l.durationMins/60*HOUR_PX,22);
-      const endTime=calcEndTime(l.time,l.durationMins);
-      const cls=l.status==='attended'?'attended':l.status==='cancelled'?'cancelled':'';
-      const icon=l.status==='attended'?' ✓':l.status==='cancelled'?' ✗':'';
-      const colW=100/l._totalCols;
-      const posStyle=l._totalCols>1?`left:calc(${l._col*colW}% + 1px);width:calc(${colW}% - 2px);right:auto;`:'left:2px;right:2px;';
-      lessonsHtml+=`<div class="tg-lesson ${cls}${l.isOneOff?' one-off':''}" style="top:${topPx}px;height:${heightPx}px;${posStyle}" onclick="${l.onclick}">
-        <div class="tg-lesson-time">${l.time}${heightPx>=44?'–'+endTime:''}${icon}</div>
-        <div style="font-size:10px;opacity:0.92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.studentName}</div>
-        ${heightPx>=44&&l.subject?`<div style="font-size:9px;opacity:0.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.subject}</div>`:''}
-      </div>`;
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        const diff = Math.round((olDate - currentWeekStart) / 86400000);
+        if (diff >= 0 && diff < 7) {
+            weekLessons[diff].push({
+                isOneOff: true, oneOffId: ol.id,
+                studentId: ol.id, studentName: ol.studentName,
+                subject: ol.subject, time: ol.time,
+                duration: ol.duration,
+                revenue: (ol.duration * ol.hourlyRate).toFixed(2),
+                status: ol.status || null
+            });
+        }
     });
-    const dayRevenue=dayLessons.reduce((s,l)=>l.status==='cancelled'?s:s+parseFloat(l.revenue),0);
-    const dayDateKey=toLocalDateKey(dayDate);
-    daysHtml+=`<div class="tg-day ${isToday?'tg-today':''}">
-      <div class="tg-day-header">
-        <span class="tg-day-num">${dayDate.getDate()}</span>
-        <span class="tg-day-name">${jsDayNames[dayDate.getDay()]}</span>
-        <button class="tg-add-btn" onclick="openQuickOneOffFromCal('${dayDateKey}')" title="Add lesson">+</button>
-      </div>
-      <div class="tg-day-body" style="height:${TOTAL_HOURS*HOUR_PX}px">${linesHtml}${lessonsHtml}</div>
-      <div class="tg-day-footer ${dayLessons.length===0?'no-class':''}">${dayLessons.length===0?'—':'$'+dayRevenue.toFixed(2)}</div>
-    </div>`;
-  }
-  document.getElementById('week-time-grid').innerHTML=`<div class="tg-scroll"><div class="tg-wrap"><div class="tg-labels">${labelsHtml}</div><div class="tg-days">${daysHtml}</div></div></div>`;
-  updateCalendarRevenueSummary();
+
+    let labelsHtml = '<div class="tg-label-header"></div>';
+    for (let h = START_HOUR; h <= END_HOUR; h++) {
+        labelsHtml += `<div class="tg-label">${h === 24 ? '00' : String(h).padStart(2,'0')}:00</div>`;
+    }
+    labelsHtml += '<div class="tg-label-footer">Total</div>';
+
+    const jsDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let daysHtml = '';
+
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(currentWeekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        const isToday = dayDate.toDateString() === new Date().toDateString();
+        const dayLessons = weekLessons[i];
+
+        let linesHtml = '';
+        for (let h = 0; h <= TOTAL_HOURS; h++) {
+            linesHtml += `<div class="tg-hour-line" style="top:${h * HOUR_PX}px"></div>`;
+        }
+
+        // Pass 1: enrich lessons with display properties
+        const enriched = dayLessons.map(lesson => {
+            let displayTime, displaySubject, status, onclick;
+            if (lesson.isOneOff) {
+                displayTime = lesson.time;
+                displaySubject = lesson.subject;
+                status = lesson.status;
+                onclick = `window.openOneOffEditModal('${lesson.oneOffId}')`;
+            } else {
+                const key = `${lesson.studentId}_${weekStartKey}_${lesson.origDayIndex}`;
+                const ovr = sessionData[key];
+                status = lesson.status;
+                displaySubject = (ovr && ovr.subject) ? ovr.subject : lesson.subject;
+                displayTime = (ovr && ovr.time) ? ovr.time : lesson.time;
+                onclick = `window.openLessonModal(${lesson.studentId},'${weekStartKey}',${lesson.origDayIndex})`;
+            }
+            const [lh, lmins] = displayTime.split(':').map(Number);
+            const hourOffset = lh === 0 ? 24 : lh;
+            const startMins = hourOffset * 60 + lmins;
+            return { ...lesson, displayTime, displaySubject, status, onclick, startMins, durationMins: Math.round(lesson.duration * 60) };
+        });
+        // Pass 2: detect overlaps and assign horizontal columns
+        enriched.sort((a, b) => a.startMins - b.startMins);
+        const colEnds = [];
+        enriched.forEach(l => {
+            let col = 0;
+            while (col < colEnds.length && colEnds[col] > l.startMins) col++;
+            colEnds[col] = l.startMins + l.durationMins;
+            l._col = col;
+        });
+        enriched.forEach(l => {
+            let maxCol = l._col;
+            enriched.forEach(o => {
+                if (o === l) return;
+                if (o.startMins < l.startMins + l.durationMins && o.startMins + o.durationMins > l.startMins)
+                    maxCol = Math.max(maxCol, o._col);
+            });
+            l._totalCols = maxCol + 1;
+        });
+        // Pass 3: build HTML
+        let lessonsHtml = '';
+        enriched.forEach(lesson => {
+            const { displayTime, displaySubject, status, onclick, startMins, _col, _totalCols } = lesson;
+            const topPx = (startMins - START_HOUR * 60) / 60 * HOUR_PX;
+            const heightPx = Math.max(lesson.duration * HOUR_PX, 22);
+            const endTime = calcEndTime(displayTime, lesson.duration);
+            const cls = status === 'attended' ? 'attended' : status === 'cancelled' ? 'cancelled' : '';
+            const icon = status === 'attended' ? ' ✓' : status === 'cancelled' ? ' ✗' : '';
+            const showEnd = heightPx >= 44;
+            const colW = 100 / _totalCols;
+            const posStyle = _totalCols > 1
+                ? `left:calc(${_col * colW}% + 1px);width:calc(${colW}% - 2px);right:auto;`
+                : 'left:2px;right:2px;';
+            lessonsHtml += `<div class="tg-lesson ${cls}${lesson.isOneOff ? ' one-off' : ''}" style="top:${topPx}px;height:${heightPx}px;${posStyle}" onclick="${onclick}">
+                <div class="tg-lesson-time">${displayTime}${showEnd ? '–'+endTime : ''}${icon}</div>
+                <div style="font-size:10px;opacity:0.92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lesson.studentName}</div>
+                ${heightPx >= 44 && displaySubject ? `<div style="font-size:9px;opacity:0.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displaySubject}</div>` : ''}
+            </div>`;
+        });
+
+        const dayRevenue = dayLessons.reduce((sum, l) => l.status === 'cancelled' ? sum : sum + parseFloat(l.revenue), 0);
+        const dayDateKey = toLocalDateKey(dayDate);
+        daysHtml += `<div class="tg-day ${isToday ? 'tg-today' : ''}">
+            <div class="tg-day-header">
+                <span class="tg-day-num">${dayDate.getDate()}</span>
+                <span class="tg-day-name">${jsDayNames[dayDate.getDay()]}</span>
+                <button class="tg-add-btn" onclick="window.openOneOffModal('${dayDateKey}',${i})" title="Add lesson">+</button>
+            </div>
+            <div class="tg-day-body" style="height:${TOTAL_HOURS * HOUR_PX}px;">
+                ${linesHtml}${lessonsHtml}
+            </div>
+            <div class="tg-day-footer ${dayLessons.length === 0 ? 'no-class' : ''}">
+                ${dayLessons.length === 0 ? '—' : '$' + dayRevenue.toFixed(2)}
+            </div>
+        </div>`;
+    }
+
+    document.getElementById('calendarGrid').innerHTML = `
+        <div class="tg-scroll">
+            <div class="tg-wrap">
+                <div class="tg-labels">${labelsHtml}</div>
+                <div class="tg-days">${daysHtml}</div>
+            </div>
+        </div>`;
 }
-function openQuickOneOffFromCal(dateKey){switchTab('students');document.getElementById('oneoff-date').value=dateKey;}
-function openLessonAttModal(studentId,wk,dayIdx){
-  const s=students.find(x=>x.id===studentId);if(!s)return;
-  const slot=(s.schedule||[]).find(sl=>sl.day===parseInt(dayIdx));if(!slot)return;
-  const key=`${studentId}_${wk}_${dayIdx}`;
-  const rec=attendance[key];
-  const status=rec?(rec.present?'attended':'cancelled'):null;
-  const endTime=calcEndTime(slot.time,slot.duration||60);
-  document.getElementById('att-modal-body').innerHTML=`
-    <p style="font-size:15px;font-weight:600;margin-bottom:4px">${s.name}</p>
-    <p style="font-size:13px;color:#666;margin-bottom:16px">${s.subject||''} &middot; ${slot.time}${endTime?'–'+endTime:''}</p>
-    <p style="font-size:13px;margin-bottom:14px">Status: <strong style="color:${status==='attended'?'#2e7d32':status==='cancelled'?'#c62828':'#888'}">${status||'Not marked'}</strong></p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <button class="btn btn-success" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},true)">Attended</button>
-      <button class="btn btn-danger" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},false)">Cancelled</button>
-      <button class="btn btn-secondary" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},null)">Clear</button>
+
+function updateCalendarRevenueSummary() {
+    const viewed = new Date(currentWeekStart);
+    const year = viewed.getFullYear();
+    const month = viewed.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthName = viewed.toLocaleString('default', { month: 'long' });
+
+    let projectedMonthly = 0;
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                if (date.getDay() !== jsDay) continue;
+                if (s.startDate && toLocalDateKey(date) < s.startDate) continue;
+                projectedMonthly += s.duration * s.hourlyRate;
+            }
+        });
+    });
+    // Include one-off lessons in projected (they're in the calendar regardless of status)
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() === month && olDate.getFullYear() === year) {
+            projectedMonthly += ol.duration * ol.hourlyRate;
+        }
+    });
+
+    // Revenue earned: only explicitly attended sessions in this month
+    let revenueToDate = 0, attendedCount = 0, cancelledCount = 0;
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        if (parts.length < 3) return;
+        const sid = parts[0], dateStr = parts[1], dayIdx = parts[2];
+        const wkStart = new Date(dateStr + 'T00:00:00');
+        const recordDate = new Date(wkStart);
+        recordDate.setDate(recordDate.getDate() + parseInt(dayIdx));
+        if (recordDate.getMonth() !== month || recordDate.getFullYear() !== year) return;
+        const student = students.find(s => s.id === parseInt(sid));
+        if (!student) return;
+        const schedule = student.schedule.find(sc => sc.day === parseInt(dayIdx));
+        if (!schedule) return;
+        if (status === 'attended') { revenueToDate += student.duration * student.hourlyRate; attendedCount++; }
+        else if (status === 'cancelled') { cancelledCount++; }
+    });
+
+    // Also count one-off (ad-hoc) lessons
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+        if (ol.status === 'attended')      { revenueToDate += ol.duration * ol.hourlyRate; attendedCount++; }
+        else if (ol.status === 'cancelled') { cancelledCount++; }
+    });
+
+    const percent = projectedMonthly > 0 ? Math.round((revenueToDate / projectedMonthly) * 100) : 0;
+
+    const labelEl = document.getElementById('calRevLabel');
+    if (labelEl) labelEl.textContent = `${monthName} Revenue Earned`;
+    const noteEl = document.getElementById('calRevNote');
+    if (noteEl) noteEl.textContent = (attendedCount || cancelledCount)
+        ? `${attendedCount} attended · ${cancelledCount} cancelled`
+        : 'Mark sessions ✓ Attended to track revenue';
+
+    document.getElementById('calendarRevenueToDate').textContent = `$${revenueToDate.toFixed(2)}`;
+    document.getElementById('calendarProjectedMonthly').textContent = `$${projectedMonthly.toFixed(2)}`;
+    document.getElementById('calendarRevenuePercent').textContent = `${percent}%`;
+}
+
+window.toggleAttendance = async function(studentId, weekStartStr, dayIndex) {
+    const key = `${studentId}_${weekStartStr}_${dayIndex}`;
+    const current = attendanceRecords[key];
+    const updated = { ...attendanceRecords };
+    
+    if (!current) {
+        updated[key] = 'attended';
+    } else if (current === 'attended') {
+        updated[key] = 'cancelled';
+    } else {
+        delete updated[key];
+    }
+
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').set({ records: updated });
+    } catch(e) {
+        console.error(e);
+    }
+};
+
+window.previousWeek = function() {
+    currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+    renderCalendar();
+};
+
+window.nextWeek = function() {
+    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    renderCalendar();
+};
+
+// ── LESSON DETAIL MODAL ────────────────────────────────────────────────────
+let _lm = {};
+
+function buildLessonBody({ meta, status, subject, note, time, date, saveFunc, cancelFunc, deleteFunc }) {
+    const ab = (id, label, active, color) =>
+        `<button id="${id}" class="lm-att-btn" onclick="window.setLmStatus(${id==='lmbtn_pending'?'null':`'${id.replace('lmbtn_','')}'`})" style="background:${active?color:'#e8e8e8'};color:${active?'white':'#555'};">${label}</button>`;
+    return `
+        <div style="font-size:12px;color:#888;margin-bottom:16px;">${meta}</div>
+        <div style="margin-bottom:16px;">
+            <div style="font-size:11px;font-weight:600;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Attendance</div>
+            <div style="display:flex;gap:6px;">
+                ${ab('lmbtn_pending','Pending',!status,'#1976d2')}
+                ${ab('lmbtn_attended','✓ Attended',status==='attended','#388e3c')}
+                ${ab('lmbtn_cancelled','✗ Cancelled',status==='cancelled','#c62828')}
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+                <label>Date <span style="font-size:11px;color:#aaa;font-weight:400;">(reschedule)</span></label>
+                <input type="date" id="lm_date" value="${date}" style="padding:8px 10px;">
+            </div>
+            <div class="form-group">
+                <label>Time <span style="font-size:11px;color:#aaa;font-weight:400;">(this session)</span></label>
+                <select id="lm_time">${TIMES.map(t=>`<option value="${t}"${t===time?' selected':''}>${t}</option>`).join('')}</select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Subject <span style="font-size:11px;color:#aaa;font-weight:400;">(this session only)</span></label>
+            <input type="text" id="lm_subject" value="${subject}">
+        </div>
+        <div class="form-group">
+            <label>Note <span style="font-size:11px;color:#aaa;font-weight:400;">(optional)</span></label>
+            <input type="text" id="lm_note" value="${note}" placeholder="e.g. topic covered, late start…">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button onclick="${saveFunc}" style="flex:1;">Save</button>
+            <button class="secondary" onclick="${cancelFunc}" style="flex:1;">Cancel</button>
+        </div>
+        ${deleteFunc ? `<button class="danger-btn" onclick="${deleteFunc}" style="width:100%;margin-top:8px;">Delete this lesson</button>` : ''}`;
+}
+
+window.openLessonModal = function(studentId, weekStartKey, dayIndex) {
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+    const slot = student.schedule.find(sl => sl.day === dayIndex);
+    if (!slot) return;
+    const key = `${studentId}_${weekStartKey}_${dayIndex}`;
+    const status = attendanceRecords[key] || null;
+    const sd = sessionData[key] || {};
+    const subject = sd.subject || slot.subject || student.subject;
+    const note = sd.note || '';
+    const sessionTime = sd.time || slot.time;
+    const lessonDate = new Date(weekStartKey + 'T00:00:00');
+    lessonDate.setDate(lessonDate.getDate() + dayIndex);
+    const origDateKey = lessonDate.toISOString().split('T')[0];
+    const sessionDateKey = sd.rescheduleDate || origDateKey;
+    const endTime = calcEndTime(sessionTime, student.duration);
+    const dateStr = new Date(sessionDateKey + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    _lm = { type: 'recurring', key, status, slotTime: slot.time, origDate: origDateKey };
+    document.getElementById('lm_title').textContent = student.studentName;
+    document.getElementById('lm_body').innerHTML = buildLessonBody({
+        meta: `${dateStr} · ${sessionTime}–${endTime} · $${(student.duration * student.hourlyRate).toFixed(2)}`,
+        status, subject, note, time: sessionTime, date: sessionDateKey,
+        saveFunc: 'window.saveLessonModal()',
+        cancelFunc: 'window.closeLessonModal()'
+    });
+    document.getElementById('lessonModal').classList.add('active');
+};
+
+window.setLmStatus = function(status) {
+    _lm.status = status;
+    const map = { lmbtn_pending: [!status, '#1976d2'], lmbtn_attended: [status==='attended', '#388e3c'], lmbtn_cancelled: [status==='cancelled', '#c62828'] };
+    Object.entries(map).forEach(([id, [active, color]]) => {
+        const el = document.getElementById(id);
+        if (el) { el.style.background = active ? color : '#e8e8e8'; el.style.color = active ? 'white' : '#555'; }
+    });
+};
+
+window.saveLessonModal = async function() {
+    const subject = document.getElementById('lm_subject').value.trim();
+    const note = document.getElementById('lm_note').value.trim();
+    const time = document.getElementById('lm_time').value;
+    const date = document.getElementById('lm_date').value;
+    const { key, status, slotTime, origDate } = _lm;
+    const updAtt = { ...attendanceRecords };
+    if (!status) delete updAtt[key]; else updAtt[key] = status;
+    const updSd = { ...sessionData };
+    const timeChanged = time !== slotTime;
+    const dateChanged = date !== origDate;
+    if (subject || note || timeChanged || dateChanged) {
+        updSd[key] = { subject, note,
+            ...(timeChanged ? { time } : {}),
+            ...(dateChanged ? { rescheduleDate: date } : {}) };
+    } else {
+        delete updSd[key];
+    }
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').set({ records: updAtt });
+        await db.collection('users').doc(currentUser.uid).collection('session_data').doc('overrides').set({ data: updSd });
+        window.closeLessonModal();
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.closeLessonModal = function() {
+    document.getElementById('lessonModal').classList.remove('active');
+    _lm = {};
+};
+
+// ── ONE-OFF LESSON MODAL ───────────────────────────────────────────────────
+window.openOneOffModal = function(dateKey, dayIndex) {
+    _lm = { type: 'new-oneoff', dateKey, dayIndex };
+    const date = new Date(dateKey + 'T00:00:00');
+    const dateStr = date.toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+    const studentOptions = students.map(s => `<option value="${s.id}">${s.studentName}</option>`).join('');
+    document.getElementById('oom_title').textContent = 'Add One-Off Lesson';
+    document.getElementById('oom_body').innerHTML = `
+        <div style="font-size:12px;color:#888;margin-bottom:16px;">${dateStr}</div>
+        <div class="form-group"><label>Student</label>
+            <select id="oom_student" onchange="window.onOomStudentChange()">
+                <option value="">— Custom / Ad-hoc —</option>${studentOptions}
+            </select>
+        </div>
+        <div id="oom_custom_wrap" class="form-group"><label>Custom Name</label>
+            <input type="text" id="oom_custom_name" placeholder="Student name">
+        </div>
+        <div class="form-group"><label>Subject</label>
+            <input type="text" id="oom_subject" placeholder="e.g. Math">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group"><label>Start Time</label>
+                <select id="oom_time">${TIMES.map(t=>`<option value="${t}"${t==='14:00'?' selected':''}>${t}</option>`).join('')}</select>
+            </div>
+            <div class="form-group"><label>Duration (h)</label>
+                <input type="number" id="oom_dur" value="1.5" min="0.5" step="0.5">
+            </div>
+        </div>
+        <div class="form-group"><label>Hourly Rate ($)</label>
+            <input type="number" id="oom_rate" value="60" min="0" step="5">
+        </div>
+        <div class="form-group"><label>Note</label>
+            <input type="text" id="oom_note" placeholder="Optional note…">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button onclick="window.saveOneOff()" style="flex:1;">Add Lesson</button>
+            <button class="secondary" onclick="document.getElementById('oneOffModal').classList.remove('active')" style="flex:1;">Cancel</button>
+        </div>`;
+    document.getElementById('oneOffModal').classList.add('active');
+};
+
+window.onOomStudentChange = function() {
+    const val = document.getElementById('oom_student').value;
+    document.getElementById('oom_custom_wrap').style.display = val ? 'none' : 'block';
+    if (val) {
+        const s = students.find(st => st.id === parseInt(val));
+        if (s) {
+            document.getElementById('oom_subject').value = s.subject;
+            document.getElementById('oom_rate').value = s.hourlyRate;
+            document.getElementById('oom_dur').value = s.duration;
+        }
+    }
+};
+
+window.saveOneOff = async function() {
+    const val = document.getElementById('oom_student').value;
+    const studentId = val ? parseInt(val) : null;
+    const name = studentId
+        ? (students.find(s => s.id === studentId)?.studentName || '')
+        : (document.getElementById('oom_custom_name')?.value.trim() || '');
+    const subject = document.getElementById('oom_subject').value.trim();
+    const time = document.getElementById('oom_time').value;
+    const dur = parseFloat(document.getElementById('oom_dur').value);
+    const rate = parseFloat(document.getElementById('oom_rate').value);
+    const note = document.getElementById('oom_note').value.trim();
+    if (!name || !subject || !dur || !rate) { alert('Fill all fields'); return; }
+    const id = String(Date.now());
+    const updated = { ...oneOffLessons, [id]: { id, dateKey: _lm.dateKey, dayIndex: _lm.dayIndex, studentId, studentName: name, subject, time, duration: dur, hourlyRate: rate, status: null, note } };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').set({ lessons: updated });
+        document.getElementById('oneOffModal').classList.remove('active');
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.openOneOffEditModal = function(id) {
+    const lesson = oneOffLessons[id];
+    if (!lesson) return;
+    _lm = { type: 'oneoff', id, status: lesson.status, origDate: lesson.dateKey };
+    const endTime = calcEndTime(lesson.time, lesson.duration);
+    const dateStr = new Date(lesson.dateKey + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    document.getElementById('lm_title').textContent = lesson.studentName + ' ★';
+    document.getElementById('lm_body').innerHTML = buildLessonBody({
+        meta: `${dateStr} · ${lesson.time}–${endTime} · $${(lesson.duration * lesson.hourlyRate).toFixed(2)} · one-off`,
+        status: lesson.status, subject: lesson.subject, note: lesson.note || '', time: lesson.time, date: lesson.dateKey,
+        saveFunc: 'window.saveOneOffEdit()',
+        cancelFunc: 'window.closeLessonModal()',
+        deleteFunc: `window.deleteOneOff('${id}')`
+    });
+    document.getElementById('lessonModal').classList.add('active');
+};
+
+window.saveOneOffEdit = async function() {
+    const subject = document.getElementById('lm_subject').value.trim();
+    const note = document.getElementById('lm_note').value.trim();
+    const time = document.getElementById('lm_time').value;
+    const date = document.getElementById('lm_date').value;
+    const { id, status } = _lm;
+    const updated = { ...oneOffLessons, [id]: { ...oneOffLessons[id], status, subject, note, time, dateKey: date || oneOffLessons[id].dateKey } };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').set({ lessons: updated });
+        window.closeLessonModal();
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.deleteOneOff = async function(id) {
+    if (!confirm('Delete this one-off lesson?')) return;
+    const updated = { ...oneOffLessons };
+    delete updated[id];
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').set({ lessons: updated });
+        window.closeLessonModal();
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+function renderAnalytics() {
+    const container = document.getElementById('analyticsList');
+    if (students.length === 0) {
+        container.innerHTML = '<div class="empty-state">No students yet. Add students to see analytics.</div>';
+        return;
+    }
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const dayOfMonth = today.getDate();
+    const monthName = today.toLocaleString('default', { month: 'long' });
+
+    const thisWeekStart = getMonday(new Date());
+    const thisWeekKey = thisWeekStart.toISOString().split('T')[0];
+
+    // ── WEEKLY AGGREGATES ──
+    let wkScheduled = 0, wkAttended = 0, wkCancelled = 0, wkEarned = 0, wkPotential = 0, wkLost = 0;
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            const key = `${s.id}_${thisWeekKey}_${slot.day}`;
+            const status = attendanceRecords[key];
+            const rev = s.duration * s.hourlyRate;
+            wkScheduled++;
+            wkPotential += rev;
+            if (status === 'attended')      { wkAttended++;  wkEarned += rev; }
+            else if (status === 'cancelled') { wkCancelled++; wkLost   += rev; }
+        });
+    });
+    // Include one-off lessons in this week
+    const thisWeekEnd = new Date(thisWeekStart); thisWeekEnd.setDate(thisWeekEnd.getDate() + 7);
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate < thisWeekStart || olDate >= thisWeekEnd) return;
+        const rev = ol.duration * ol.hourlyRate;
+        wkScheduled++; wkPotential += rev;
+        if (ol.status === 'attended')      { wkAttended++;  wkEarned += rev; }
+        else if (ol.status === 'cancelled') { wkCancelled++; wkLost   += rev; }
+    });
+    const wkPending  = wkScheduled - wkAttended - wkCancelled;
+    const wkMarked   = wkAttended + wkCancelled;
+    const wkAttRate  = wkMarked > 0 ? Math.round((wkAttended / wkMarked) * 100) : null;
+
+    // ── MONTHLY AGGREGATES ──
+    let totalWeekly = 0, totalProjected = 0;
+    let moAttended = 0, moCancelled = 0, moEarned = 0, moLost = 0;
+
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            totalWeekly += s.duration * s.hourlyRate;
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                if (date.getDay() !== jsDay) continue;
+                if (s.startDate && toLocalDateKey(date) < s.startDate) continue;
+                totalProjected += s.duration * s.hourlyRate;
+            }
+        });
+    });
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() === month && olDate.getFullYear() === year) {
+            totalProjected += ol.duration * ol.hourlyRate;
+        }
+    });
+
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        const sid = parts[0], dateStr = parts[1], dayIdx = parts[2];
+        const wkStartR = new Date(dateStr + 'T00:00:00');
+        const rec = new Date(wkStartR);
+        rec.setDate(rec.getDate() + parseInt(dayIdx));
+        if (rec.getMonth() === month && rec.getFullYear() === year) {
+            const student = students.find(s => s.id === parseInt(sid));
+            if (student) {
+                const sch = student.schedule.find(sc => sc.day === parseInt(dayIdx));
+                if (sch) {
+                    const rev = student.duration * student.hourlyRate;
+                    if (status === 'attended')      { moAttended++;  moEarned += rev; }
+                    else if (status === 'cancelled') { moCancelled++; moLost   += rev; }
+                }
+            }
+        }
+    });
+    // One-off lessons in monthly totals
+    Object.values(oneOffLessons).forEach(ol => {
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+        const rev = ol.duration * ol.hourlyRate;
+        if (ol.status === 'attended')      { moAttended++;  moEarned += rev; }
+        else if (ol.status === 'cancelled') { moCancelled++; moLost   += rev; }
+    });
+    // Rescheduled sessions this month
+    let moRescheduled = 0;
+    Object.entries(sessionData).forEach(([key, data]) => {
+        if (!data.rescheduleDate) return;
+        const parts = key.split('_');
+        if (parts.length < 3) return;
+        const wkStart = new Date(parts[1] + 'T00:00:00');
+        const origDate = new Date(wkStart);
+        origDate.setDate(origDate.getDate() + parseInt(parts[2]));
+        if (origDate.getMonth() !== month || origDate.getFullYear() !== year) return;
+        const student = students.find(s => s.id === parseInt(parts[0]));
+        if (student) moRescheduled++;
+    });
+
+    const moMarked   = moAttended + moCancelled;
+    const moAttRate  = moMarked > 0 ? Math.round((moAttended / moMarked) * 100) : null;
+    const moRevPct   = totalProjected > 0 ? Math.round((moEarned / totalProjected) * 100) : 0;
+    const moTimePct  = Math.round((dayOfMonth / daysInMonth) * 100);
+    const perDay     = totalWeekly / 7;
+
+    function rateColor(pct) {
+        if (pct >= 80) return '#388e3c';
+        if (pct >= 50) return '#f57c00';
+        return '#c62828';
+    }
+    function bar(pct, color) {
+        const c = color || rateColor(pct);
+        return `<div class="attendance-bar-wrap" style="margin-top:5px;"><div class="attendance-bar" style="width:${Math.min(pct,100)}%;background:${c};"></div></div>`;
+    }
+    function sectionLabel(txt) {
+        return `<div style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;">${txt}</div>`;
+    }
+
+    let html = '';
+
+    // ══════════════════════════
+    //  THIS WEEK
+    // ══════════════════════════
+    html += `<h2 style="margin-bottom:12px;">This Week</h2>
+    <div class="revenue-stats-grid">
+        <div class="student-card"><div class="stat-label">Sessions Scheduled</div><div class="stat-value">${wkScheduled}</div></div>
+        <div class="student-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${wkAttended}</div></div>
+        <div class="student-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${wkCancelled}</div></div>
+        <div class="student-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${wkPending}</div></div>
+        <div class="student-card"><div class="stat-label">Revenue Earned</div><div class="stat-value">$${wkEarned.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Revenue Lost</div><div class="stat-value" style="color:#c62828;">$${wkLost.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Weekly Potential</div><div class="stat-value">$${wkPotential.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Attendance Rate</div><div class="stat-value" style="color:${wkAttRate !== null ? rateColor(wkAttRate) : '#999'};">${wkAttRate !== null ? wkAttRate + '%' : '—'}</div></div>
+    </div>`;
+
+    if (wkAttRate !== null) {
+        html += `<div class="student-card" style="margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Weekly attendance rate &nbsp;(${wkAttended} attended · ${wkCancelled} cancelled)</span>
+                <span style="font-size:12px;font-weight:700;color:${rateColor(wkAttRate)};">${wkAttRate}%</span>
+            </div>
+            ${bar(wkAttRate)}
+        </div>`;
+    }
+
+    // ══════════════════════════
+    //  THIS MONTH
+    // ══════════════════════════
+    html += `<h2 style="margin-top:20px;margin-bottom:12px;">${monthName} ${year}</h2>
+    <div class="revenue-stats-grid">
+        <div class="student-card"><div class="stat-label">Revenue Earned</div><div class="stat-value">$${moEarned.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Projected Monthly</div><div class="stat-value">$${totalProjected.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Revenue Lost</div><div class="stat-value" style="color:#c62828;">$${moLost.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Avg Per Day</div><div class="stat-value">$${perDay.toFixed(2)}</div></div>
+        <div class="student-card"><div class="stat-label">Sessions Attended</div><div class="stat-value" style="color:#388e3c;">${moAttended}</div></div>
+        <div class="student-card"><div class="stat-label">Sessions Cancelled</div><div class="stat-value" style="color:#c62828;">${moCancelled}</div></div>
+        <div class="student-card"><div class="stat-label">Attendance Rate</div><div class="stat-value" style="color:${moAttRate !== null ? rateColor(moAttRate) : '#999'};">${moAttRate !== null ? moAttRate + '%' : '—'}</div></div>
+        <div class="student-card"><div class="stat-label">% Revenue Achieved</div><div class="stat-value" style="color:#388e3c;">${moRevPct}%</div></div>
+        <div class="student-card"><div class="stat-label">Rescheduled</div><div class="stat-value" style="color:#f57c00;">${moRescheduled}</div></div>
     </div>
-    <div style="border-top:1px solid #eee;padding-top:12px">
-      <p style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px">Reschedule to another date:</p>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="date" id="reschedule-date" style="flex:1;padding:7px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px">
-        <button class="btn btn-secondary btn-sm" onclick="rescheduleLesson('${studentId}','${wk}',${dayIdx})">Reschedule</button>
-      </div>
-      <p style="font-size:11px;color:#aaa;margin-top:5px">Marks lesson cancelled &amp; creates a one-off on the new date</p>
+
+    <div class="student-card" style="margin-bottom:4px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px;">Monthly Progress — ${monthName} ${year}</div>
+        <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Revenue achieved &nbsp;($${moEarned.toFixed(0)} of $${totalProjected.toFixed(0)})</span>
+                <span style="font-size:12px;font-weight:700;color:${rateColor(moRevPct)};">${moRevPct}%</span>
+            </div>${bar(moRevPct)}
+        </div>
+        <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Month elapsed &nbsp;(day ${dayOfMonth} of ${daysInMonth})</span>
+                <span style="font-size:12px;font-weight:700;color:#1976d2;">${moTimePct}%</span>
+            </div>${bar(moTimePct, '#1976d2')}
+        </div>
+        ${moAttRate !== null ? `<div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:12px;color:#666;">Attendance rate &nbsp;(${moAttended} attended · ${moCancelled} cancelled)</span>
+                <span style="font-size:12px;font-weight:700;color:${rateColor(moAttRate)};">${moAttRate}%</span>
+            </div>${bar(moAttRate)}</div>` : ''}
     </div>`;
-  openModal('att-modal');
-}
-async function setLessonStatus(studentId,wk,dayIdx,present){
-  const key=`${studentId}_${wk}_${parseInt(dayIdx)}`;
-  if(present===null){delete attendance[key];await col_ref('attendance').doc(key).delete();}
-  else{attendance[key]={present,studentId,weekStart:wk,dayIndex:parseInt(dayIdx)};await col_ref('attendance').doc(key).set(attendance[key]);}
-  closeModal('att-modal');renderWeekView();renderAttendance();
-  toast(present===null?'Cleared':present?'Marked attended':'Marked cancelled');
-}
-function openOneOffAttModal(id){
-  const o=oneOffs.find(x=>x.id===id);if(!o)return;
-  const s=students.find(x=>x.id===o.studentId);
-  const endTime=calcEndTime(o.time,o.duration||60);
-  document.getElementById('att-modal-body').innerHTML=`
-    <p style="font-size:15px;font-weight:600;margin-bottom:4px">${s?s.name:'Unknown'} <span style="font-size:11px;color:#888">(one-off)</span></p>
-    <p style="font-size:13px;color:#666;margin-bottom:16px">${o.date} &middot; ${o.time}–${endTime} &middot; ${o.duration}min</p>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-danger btn-sm" style="flex:1" onclick="deleteOneOff('${id}');closeModal('att-modal')">Delete session</button>
-      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="closeModal('att-modal')">Close</button>
-    </div>`;
-  openModal('att-modal');
-}
-async function rescheduleLesson(studentId,wk,dayIdx){
-  const rescDate=document.getElementById('reschedule-date').value;
-  if(!rescDate){toast('Please select a reschedule date');return;}
-  const s=students.find(x=>x.id===studentId);if(!s)return;
-  const slot=(s.schedule||[]).find(sl=>sl.day===parseInt(dayIdx));if(!slot)return;
-  // Mark original as cancelled
-  const key=`${studentId}_${wk}_${parseInt(dayIdx)}`;
-  attendance[key]={present:false,studentId,weekStart:wk,dayIndex:parseInt(dayIdx)};
-  await col_ref('attendance').doc(key).set(attendance[key]);
-  // Create a one-off on the new date
-  const data={studentId,date:rescDate,time:slot.time,duration:slot.duration||60,createdAt:Date.now()};
-  const ref=await col_ref('one_off').add(data);
-  oneOffs.push({id:ref.id,...data,studentId:String(studentId)});
-  closeModal('att-modal');
-  renderWeekView();renderAttendance();renderOneOffs();updateCalendarRevenueSummary();
-  toast('Rescheduled — one-off created for '+rescDate);
-}
-function openQuickOneOffFromCal(dateKey){
-  document.getElementById('qo-student').innerHTML=students.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  document.getElementById('qo-date').value=dateKey;
-  document.getElementById('qo-time').value='';
-  document.getElementById('qo-dur').value='60';
-  openModal('quick-oneoff-modal');
-}
-async function saveQuickOneOff(){
-  const studentId=document.getElementById('qo-student').value;
-  const date=document.getElementById('qo-date').value;
-  const time=document.getElementById('qo-time').value;
-  const duration=parseInt(document.getElementById('qo-dur').value)||60;
-  if(!studentId||!date||!time){toast('Please fill in all fields');return;}
-  const data={studentId,date,time,duration,createdAt:Date.now()};
-  const ref=await col_ref('one_off').add(data);
-  oneOffs.push({id:ref.id,...data});
-  renderOneOffs();renderCalendar();if(calView==='week')renderWeekView();
-  closeModal('quick-oneoff-modal');
-  toast('One-off session added');
+
+    // ══════════════════════════
+    //  PER STUDENT
+    // ══════════════════════════
+    html += `<h2 style="margin-top:20px;margin-bottom:12px;">Student Performance — ${monthName} ${year}</h2>`;
+
+    students.forEach(s => {
+        const weeklyRev  = s.schedule.length * s.duration * s.hourlyRate;
+        let monthlyRev = 0;
+        s.schedule.forEach(slot => {
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                if (date.getDay() !== jsDay) continue;
+                if (s.startDate && toLocalDateKey(date) < s.startDate) continue;
+                monthlyRev += s.duration * s.hourlyRate;
+            }
+        });
+
+        // This week — per student
+        let sWkAtt = 0, sWkCanc = 0, sWkPend = 0, sWkOneOff = 0;
+        s.schedule.forEach(slot => {
+            const status = attendanceRecords[`${s.id}_${thisWeekKey}_${slot.day}`];
+            if (status === 'attended') sWkAtt++;
+            else if (status === 'cancelled') sWkCanc++;
+            else sWkPend++;
+        });
+        Object.values(oneOffLessons).forEach(ol => {
+            if (ol.studentId !== s.id) return;
+            const olDate = new Date(ol.dateKey + 'T00:00:00');
+            const wkEnd = new Date(thisWeekStart); wkEnd.setDate(wkEnd.getDate() + 7);
+            if (olDate >= thisWeekStart && olDate < wkEnd) sWkOneOff++;
+        });
+
+        // This month — per student (regular sessions)
+        let sAtt = 0, sCanc = 0, sEarned = 0, sLost = 0, sRescheduled = 0, sOneOff = 0;
+        Object.entries(attendanceRecords).forEach(([key, status]) => {
+            const parts = key.split('_');
+            if (parts[0] !== String(s.id)) return;
+            const wkStart = new Date(parts[1] + 'T00:00:00');
+            const rec = new Date(wkStart);
+            rec.setDate(rec.getDate() + parseInt(parts[2]));
+            if (rec.getMonth() !== month || rec.getFullYear() !== year) return;
+            const sch = s.schedule.find(sc => sc.day === parseInt(parts[2]));
+            if (!sch) return;
+            const rev = s.duration * s.hourlyRate;
+            if (status === 'attended')      { sAtt++;  sEarned += rev; }
+            else if (status === 'cancelled') { sCanc++; sLost   += rev; }
+        });
+        // One-off lessons for this student this month
+        Object.values(oneOffLessons).forEach(ol => {
+            if (ol.studentId !== s.id) return;
+            const olDate = new Date(ol.dateKey + 'T00:00:00');
+            if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+            sOneOff++;
+            const rev = ol.duration * ol.hourlyRate;
+            if (ol.status === 'attended')      { sAtt++;  sEarned += rev; }
+            else if (ol.status === 'cancelled') { sCanc++; sLost   += rev; }
+        });
+        // Rescheduled sessions this month
+        Object.entries(sessionData).forEach(([key, data]) => {
+            if (!data.rescheduleDate) return;
+            const parts = key.split('_');
+            if (parts[0] !== String(s.id)) return;
+            const wkStart = new Date(parts[1] + 'T00:00:00');
+            const origDate = new Date(wkStart);
+            origDate.setDate(origDate.getDate() + parseInt(parts[2]));
+            if (origDate.getMonth() !== month || origDate.getFullYear() !== year) return;
+            sRescheduled++;
+        });
+
+        const sMarked  = sAtt + sCanc;
+        const sAttRate = sMarked > 0 ? Math.round((sAtt / sMarked) * 100) : null;
+
+        html += `<div class="student-card">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:#1976d2;">${s.studentName}</div>
+                    <div style="font-size:12px;color:#666;margin-top:3px;">📖 ${s.subject} &nbsp;·&nbsp; ${s.duration}h @ $${s.hourlyRate}/hr</div>
+                </div>
+                ${sAttRate !== null
+                    ? `<div style="text-align:center;background:${rateColor(sAttRate)};color:white;border-radius:10px;padding:7px 14px;line-height:1.2;">
+                           <div style="font-size:18px;font-weight:700;">${sAttRate}%</div>
+                           <div style="font-size:10px;">att. rate</div>
+                       </div>`
+                    : ''}
+            </div>
+
+            ${sectionLabel('This week')}
+            <div class="revenue-summary" style="grid-template-columns:repeat(4,1fr);margin-top:0;">
+                <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value">${s.schedule.length}</div></div>
+                <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sWkAtt}</div></div>
+                <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sWkCanc}</div></div>
+                <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${sWkPend}</div></div>
+            </div>
+            ${sWkOneOff > 0 ? `<div style="font-size:11px;color:#1976d2;margin-top:4px;">+ ${sWkOneOff} ad-hoc session${sWkOneOff>1?'s':''} this week</div>` : ''}
+
+            ${sectionLabel(monthName + ' ' + year)}
+            <div class="revenue-summary" style="margin-top:0;">
+                <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${weeklyRev.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Projected Monthly</div><div class="stat-value">$${monthlyRev.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Earned</div><div class="stat-value" style="color:#388e3c;">$${sEarned.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Lost (cancelled)</div><div class="stat-value" style="color:#c62828;">$${sLost.toFixed(2)}</div></div>
+                <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sAtt} sessions</div></div>
+                <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sCanc} sessions</div></div>
+                <div class="stat-card"><div class="stat-label">Rescheduled</div><div class="stat-value" style="color:#f57c00;">${sRescheduled}</div></div>
+                <div class="stat-card"><div class="stat-label">Ad-hoc</div><div class="stat-value" style="color:#1976d2;">${sOneOff} sessions</div></div>
+            </div>
+
+            ${sAttRate !== null ? `<div style="margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                    <span style="font-size:12px;color:#666;">Attendance rate &nbsp;(${sAtt} attended · ${sCanc} cancelled)</span>
+                    <span style="font-size:12px;font-weight:700;color:${rateColor(sAttRate)};">${sAttRate}%</span>
+                </div>${bar(sAttRate)}
+            </div>` : `<div style="font-size:11px;color:#aaa;margin-top:10px;">No sessions marked yet — click lessons in the calendar to track attendance.</div>`}
+        </div>`;
+    });
+
+    container.innerHTML = html;
 }
 
-// ── Calendar revenue summary ──────────────────────────────────
-function updateCalendarRevenueSummary(){
-  const el=document.getElementById('cal-revenue-summary');
-  if(!el)return;
-  if(calView==='month'){
-    const y=currentMonthView.getFullYear(),mo=currentMonthView.getMonth();
-    const firstDay=new Date(y,mo,1);const lastDay=new Date(y,mo+1,0);
-    let earned=0,projected=0,earnedSess=0,totalSess=0;
-    students.filter(s=>(s.status||'active')==='active').forEach(s=>{
-      const rate=s.rate||defaultRate;
-      (s.schedule||[]).forEach(slot=>{
-        for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
-          if(d.getDay()===jsDay(slot.day)){
-            const dk=toLocalDateKey(new Date(d));
-            if(s.startDate&&dk<s.startDate)continue;
-            const mon=mondayOfWeek(new Date(d));
-            const wk=weekStartKey(mon);
-            const key=`${s.id}_${wk}_${slot.day}`;
-            const rev=(slot.duration||60)/60*rate;
-            projected+=rev;totalSess++;
-            if(attendance[key]&&attendance[key].present){earned+=rev;earnedSess++;}
-          }
+window.exportToExcel = function() {
+    if (typeof XLSX === 'undefined') { alert('Excel library not loaded'); return; }
+    const weekStartKey = currentWeekStart.toISOString().split('T')[0];
+    const rows = [['Student', 'Subject', 'Day', 'Date', 'Time', 'Duration (h)', 'Rate ($/h)', 'Revenue ($)', 'Status']];
+    const DAYNAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(currentWeekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        students.forEach(s => {
+            const slot = s.schedule.find(sl => sl.day === i);
+            if (slot) {
+                const key = `${s.id}_${weekStartKey}_${i}`;
+                const status = attendanceRecords[key] || 'pending';
+                rows.push([s.studentName, s.subject, DAYNAMES[i], dayDate.toLocaleDateString(), slot.time, s.duration, s.hourlyRate, (s.duration * s.hourlyRate).toFixed(2), status]);
+            }
+        });
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+    XLSX.writeFile(wb, `tuition_sessions_${weekStartKey}.xlsx`);
+};
+
+window.exportData = function() {
+    const data = { students, attendanceRecords, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tuition_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+};
+
+window.importData = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!confirm(`Import ${(data.students || []).length} students? Existing data will be overwritten.`)) return;
+        const snap = await db.collection('users').doc(currentUser.uid).collection('students').get();
+        for (const d of snap.docs) await d.ref.delete();
+        for (const student of (data.students || [])) {
+            await db.collection('users').doc(currentUser.uid).collection('students').doc(String(student.id)).set(student);
         }
-      });
-    });
-    const mm=String(mo+1).padStart(2,'0');
-    oneOffs.filter(o=>o.date.startsWith(`${y}-${mm}`)).forEach(o=>{
-      const s=students.find(x=>x.id===o.studentId);
-      const rev=(o.duration||60)/60*(s?s.rate||defaultRate:defaultRate);
-      earned+=rev;projected+=rev;earnedSess++;totalSess++;
-    });
-    el.innerHTML=`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:13px">
-      <span style="color:#2e7d32;font-weight:700;font-size:15px">Earned: $${earned.toFixed(2)}</span>
-      <span style="color:#4a4a8a;font-weight:600">Projected: $${projected.toFixed(2)}</span>
-      <span style="color:#666">${earnedSess} attended · ${totalSess} sessions total</span>
-    </div>`;
-  } else {
-    const wk=weekStartKey(currentWeekCal);
-    let earned=0,projected=0;
-    students.filter(s=>(s.status||'active')==='active').forEach(s=>{
-      const rate=s.rate||defaultRate;
-      (s.schedule||[]).forEach(slot=>{
-        const slotDate=new Date(currentWeekCal);slotDate.setDate(slotDate.getDate()+slot.day);
-        if(s.startDate&&toLocalDateKey(slotDate)<s.startDate)return;
-        const key=`${s.id}_${wk}_${slot.day}`;
-        const rev=(slot.duration||60)/60*rate;
-        projected+=rev;
-        if(attendance[key]&&attendance[key].present)earned+=rev;
-      });
-    });
-    for(let i=0;i<7;i++){
-      const dayDate=new Date(currentWeekCal);dayDate.setDate(dayDate.getDate()+i);
-      const dk=toLocalDateKey(dayDate);
-      oneOffs.filter(o=>o.date===dk).forEach(o=>{
-        const s=students.find(x=>x.id===o.studentId);
-        const rev=(o.duration||60)/60*(s?s.rate||defaultRate:defaultRate);
-        earned+=rev;projected+=rev;
-      });
-    }
-    const weekEnd=new Date(currentWeekCal);weekEnd.setDate(weekEnd.getDate()+6);
-    el.innerHTML=`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:13px">
-      <span style="color:#2e7d32;font-weight:700;font-size:15px">Week Earned: $${earned.toFixed(2)}</span>
-      <span style="color:#4a4a8a;font-weight:600">Week Total: $${projected.toFixed(2)}</span>
-    </div>`;
-  }
-}
-
-// ── Analytics ─────────────────────────────────────────────────
-const ANALYTICS_MIN=new Date(2026,4,1); // May 2026 floor
-function analyticsMonthPrev(){
-  const m=analyticsMonth.getMonth(),y=analyticsMonth.getFullYear();
-  const prev=m===0?new Date(y-1,11,1):new Date(y,m-1,1);
-  if(prev<ANALYTICS_MIN)return;
-  analyticsMonth=prev;
-  renderAnalytics();
-}
-function analyticsMonthNext(){
-  const m=analyticsMonth.getMonth(),y=analyticsMonth.getFullYear();
-  analyticsMonth=m===11?new Date(y+1,0,1):new Date(y,m+1,1);
-  renderAnalytics();
-}
-function resetAnalyticsMonth(){analyticsMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderAnalytics();}
-
-function getMonthAttendance(studentId, year, month){
-  // Returns {present, absent, total} for scheduled days in that month
-  let present=0,absent=0,total=0;
-  const s=students.find(x=>x.id===studentId);
-  if(!s||(s.schedule||[]).length===0)return{present,absent,total};
-  const firstDay=new Date(year,month,1);
-  const lastDay=new Date(year,month+1,0);
-  // Iterate each scheduled occurrence
-  (s.schedule||[]).forEach(slot=>{
-    for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
-      if(d.getDay()===jsDay(slot.day)){
-        // Find the week monday for this date
-        const mon=mondayOfWeek(new Date(d));
-        const wk=weekStartKey(mon);
-        const dayIdx=slot.day;
-        const key=`${studentId}_${wk}_${dayIdx}`;
-        total++;
-        if(attendance[key]&&attendance[key].present)present++;
-        else absent++;
-      }
-    }
-  });
-  return{present,absent,total};
-}
-
-function calcCancellationRate(studentId, year, month){
-  const{absent,total}=getMonthAttendance(studentId,year,month);
-  if(total===0)return null;
-  return absent/total;
-}
-
-function calcAllTimeCancellationRate(studentId){
-  // Use all attendance keys for this student
-  let present=0,absent=0;
-  Object.keys(attendance).forEach(k=>{
-    if(k.startsWith(studentId+'_')){
-      const rec=attendance[k];
-      if(rec.present)present++;else absent++;
-    }
-  });
-  const total=present+absent;
-  if(total===0)return null;
-  return absent/total;
-}
-
-function calcMonthRevenue(studentId, year, month){
-  const s=students.find(x=>x.id===studentId);
-  if(!s)return 0;
-  const rate=s.rate||defaultRate;
-  const{present}=getMonthAttendance(studentId,year,month);
-  const hrs=present*((s.schedule&&s.schedule[0]?s.schedule[0].duration:60)/60);
-  // Also add one-offs
-  const oRev=oneOffs.filter(o=>o.studentId===studentId&&o.date.startsWith(`${year}-${String(month+1).padStart(2,'0')}`))
-    .reduce((sum,o)=>sum+(o.duration/60)*rate,0);
-  return present*(rate*((s.schedule&&s.schedule[0]?s.schedule[0].duration:60)/60))+ oRev;
-  // Actually compute properly per-slot
-}
-
-function calcMonthRevenueProper(studentId, year, month){
-  const s=students.find(x=>x.id===studentId);if(!s)return 0;
-  const rate=s.rate||defaultRate;
-  let rev=0;
-  const firstDay=new Date(year,month,1);
-  const lastDay=new Date(year,month+1,0);
-  (s.schedule||[]).forEach(slot=>{
-    for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
-      if(d.getDay()===jsDay(slot.day)){
-        const mon=mondayOfWeek(new Date(d));
-        const wk=weekStartKey(mon);
-        const key=`${studentId}_${wk}_${slot.day}`;
-        if(attendance[key]&&attendance[key].present){
-          rev+=(slot.duration/60)*rate;
+        if (data.attendanceRecords) {
+            await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').set({ records: data.attendanceRecords });
         }
-      }
+        alert('Import successful!');
+        event.target.value = '';
+    } catch(e) {
+        alert('Import failed: ' + e.message);
     }
-  });
-  // one-offs
-  const mm=String(month+1).padStart(2,'0');
-  oneOffs.filter(o=>o.studentId===studentId&&o.date.startsWith(`${year}-${mm}`)).forEach(o=>{
-    rev+=(o.duration/60)*rate;
-  });
-  return rev;
-}
+};
 
-function calcMonthLostRevenue(studentId, year, month){
-  const s=students.find(x=>x.id===studentId);if(!s)return 0;
-  const rate=s.rate||defaultRate;
-  let lost=0;
-  const firstDay=new Date(year,month,1);
-  const lastDay=new Date(year,month+1,0);
-  (s.schedule||[]).forEach(slot=>{
-    for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
-      if(d.getDay()===jsDay(slot.day)){
-        const mon=mondayOfWeek(new Date(d));
-        const wk=weekStartKey(mon);
-        const key=`${studentId}_${wk}_${slot.day}`;
-        if(attendance[key]&&!attendance[key].present){
-          lost+=(slot.duration||60)/60*rate;
-        }
-      }
+window.clearAttendanceOnly = async function() {
+    if (!confirm('Clear all attendance marks and session overrides (reschedules, notes)?\n\nStudents, schedules and ad-hoc lessons will NOT be deleted.')) return;
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').set({ records: {} });
+        await db.collection('users').doc(currentUser.uid).collection('session_data').doc('overrides').set({ data: {} });
+        alert('Attendance records cleared.');
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.clearOneOffOnly = async function() {
+    if (!confirm('Delete all ad-hoc (one-off) lessons?\n\nStudents, schedules and attendance records will NOT be deleted.')) return;
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').set({ lessons: {} });
+        alert('Ad-hoc lessons cleared.');
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.clearAllData = async function() {
+    if (!confirm('Delete ALL your data? This cannot be undone.')) return;
+    if (!confirm('Are you absolutely sure? Everything will be permanently deleted.')) return;
+    try {
+        const snap = await db.collection('users').doc(currentUser.uid).collection('students').get();
+        for (const d of snap.docs) await d.ref.delete();
+        await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').delete();
+        await db.collection('users').doc(currentUser.uid).collection('session_data').doc('overrides').delete();
+        await db.collection('users').doc(currentUser.uid).collection('one_off').doc('lessons').delete();
+        alert('All data deleted.');
+    } catch(e) {
+        alert('Error: ' + e.message);
     }
-  });
-  return lost;
-}
-function renderAnalytics(){
-  const y=analyticsMonth.getFullYear(),m=analyticsMonth.getMonth();
-  document.getElementById('analytics-month-label').textContent=fmtMon(analyticsMonth);
-  // Summary stats
-  let totalPresent=0,totalSessions=0,totalRevenue=0;
-  students.forEach(s=>{
-    const{present,total}=getMonthAttendance(s.id,y,m);
-    totalPresent+=present;totalSessions+=total;
-    totalRevenue+=calcMonthRevenueProper(s.id,y,m);
-  });
-  const attRate=totalSessions>0?Math.round(totalPresent/totalSessions*100):0;
-  // YTD revenue
-  let ytdRev=0;
-  for(let mo=0;mo<=m;mo++){
-    students.forEach(s=>{ytdRev+=calcMonthRevenueProper(s.id,y,mo);});
-  }
-  document.getElementById('analytics-summary').innerHTML=`
-    <div class="stat-card"><div class="stat-val">${students.filter(s=>(s.status||'active')==='active').length}</div><div class="stat-lbl">Active Students</div></div>
-    <div class="stat-card"><div class="stat-val">${totalPresent}/${totalSessions}</div><div class="stat-lbl">Sessions Attended</div></div>
-    <div class="stat-card"><div class="stat-val">${attRate}%</div><div class="stat-lbl">Attendance Rate</div></div>
-    <div class="stat-card"><div class="stat-val">$${totalRevenue.toFixed(0)}</div><div class="stat-lbl">Revenue This Month</div></div>
-    <div class="stat-card"><div class="stat-val">$${ytdRev.toFixed(0)}</div><div class="stat-lbl">YTD Revenue (${y})</div></div>`;
-  // Revenue bar chart from May 2026 up to current analytics month (max 12)
-  const months=[];
-  for(let d=new Date(ANALYTICS_MIN);d<=analyticsMonth;d.setMonth(d.getMonth()+1)){
-    let rev=0;students.forEach(s=>{rev+=calcMonthRevenueProper(s.id,d.getFullYear(),d.getMonth());});
-    months.push({label:d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}),rev});
-  }
-  const visMonths=months.slice(-12);
-  const maxRev=Math.max(...visMonths.map(x=>x.rev),1);
-  document.getElementById('revenue-chart').innerHTML=`
-    <div class="bar-chart">
-      ${visMonths.map((mo,i)=>`
-        <div class="bar-col" style="position:relative">
-          <span class="bar-val">$${mo.rev.toFixed(0)}</span>
-          <div class="bar-inner" style="height:${Math.round(mo.rev/maxRev*100)}%"></div>
-          <span class="bar-label" style="position:absolute;bottom:-20px;left:0;right:0;text-align:center">${mo.label}</span>
-        </div>`).join('')}
-    </div>`;
-  // Per-student cards
-  const activeStudents=students.filter(s=>(s.status||'active')==='active');
-  let html='';
-  activeStudents.forEach(s=>{
-    const{present,absent,total}=getMonthAttendance(s.id,y,m);
-    const mRate=total>0?absent/total:null;
-    const allRate=calcAllTimeCancellationRate(s.id);
-    const rev=calcMonthRevenueProper(s.id,y,m);
-    const lostRev=calcMonthLostRevenue(s.id,y,m);
-    let warnHtml='';
-    if(mRate!==null&&total>=3&&mRate>0.35&&allRate!==null&&mRate>allRate+0.2){
-      warnHtml=`<div class="canc-warn">⚠ Higher cancellations this month (${Math.round(mRate*100)}% vs ${Math.round(allRate*100)}% avg)</div>`;
-    }
-    const attPct=total>0?Math.round(present/total*100):0;
-    const mm=String(m+1).padStart(2,'0');
-    const oCount=oneOffs.filter(o=>o.studentId===s.id&&(o.date||'').startsWith(`${y}-${mm}`)).length;
-    // All-time totals
-    let atAll=0,absAll=0;
-    Object.keys(attendance).forEach(k=>{if(k.startsWith(s.id+'_')){const r=attendance[k];if(r.present)atAll++;else absAll++;}});
-    const allTotal=atAll+absAll;
-    const allAttPct=allTotal>0?Math.round(atAll/allTotal*100):null;
-    // All-time earned (avg slot duration approximation)
-    const avgDur=(s.schedule||[]).reduce((sum,sl)=>sum+(sl.duration||60),0)/Math.max((s.schedule||[]).length,1);
-    const allTimeEarned=atAll*(avgDur/60)*(s.rate||defaultRate);
-    const schedSummary=(s.schedule||[]).map(sl=>`${DAYS[sl.day]} ${sl.time} (${sl.duration||60}min)`).join(' · ');
-    html+=`<div class="student-analytics-card">
-      <h4 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px">
-        <span>${s.name}${s.subject?' — '+s.subject:''}</span>
-        <span style="font-size:11px;color:#aaa;font-weight:400">${schedSummary}</span>
-      </h4>
-      <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">This Month</div>
-      <div class="mini-stats">
-        <div class="mini-stat"><strong style="color:#2e7d32">${present}</strong>Attended</div>
-        <div class="mini-stat"><strong style="color:#c62828">${absent}</strong>Cancelled</div>
-        <div class="mini-stat"><strong style="color:#2e7d32">$${rev.toFixed(0)}</strong>Earned</div>
-        ${lostRev>0?`<div class="mini-stat"><strong style="color:#e65100">$${lostRev.toFixed(0)}</strong>Lost</div>`:''}
-        ${oCount>0?`<div class="mini-stat"><strong style="color:#5c6bc0">${oCount}</strong>One-offs</div>`:''}
-        <div class="mini-stat"><strong>${attPct}%</strong>Att. rate</div>
-      </div>
-      <div class="progress-bar-wrap" style="margin-bottom:10px">
-        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${attPct}%"></div></div>
-      </div>
-      ${allTotal>0?`
-      <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">All Time</div>
-      <div class="mini-stats">
-        <div class="mini-stat"><strong>${atAll}/${allTotal}</strong>Sessions</div>
-        ${allAttPct!==null?`<div class="mini-stat"><strong>${allAttPct}%</strong>Att. rate</div>`:''}
-        <div class="mini-stat"><strong>$${allTimeEarned.toFixed(0)}</strong>Total earned</div>
-      </div>`:''}
-      ${warnHtml}
-    </div>`;
-  });
-  document.getElementById('analytics-students').innerHTML=html||'<div class="card" style="color:#999;text-align:center;padding:30px">No active students</div>';
-}
+};
 
-// ── Payments ──────────────────────────────────────────────────
-function populatePaymentsMonthSelect(){
-  const sel=document.getElementById('payments-month-select');
-  const now=new Date();
-  sel.innerHTML='';
-  for(let i=0;i<12;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const val=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const lbl=fmtMon(d);
-    sel.innerHTML+=`<option value="${val}">${lbl}</option>`;
-  }
-}
-function renderPayments(){
-  if(!document.getElementById('payments-month-select').options.length)populatePaymentsMonthSelect();
-  const sel=document.getElementById('payments-month-select');
-  const val=sel.value;
-  if(!val)return;
-  const[yr,mo]=val.split('-').map(Number);
-  const monthIdx=mo-1;
-  const list=document.getElementById('payments-list');
-  const activeStudents=students.filter(s=>(s.status||'active')==='active');
-  if(!activeStudents.length){list.innerHTML='<div style="color:#999;padding:20px;text-align:center">No active students</div>';return;}
-  list.innerHTML=activeStudents.map(s=>{
-    const rev=calcMonthRevenueProper(s.id,yr,monthIdx);
-    const payKey=`${s.id}_${val}`;
-    const rec=paymentRecords[payKey];
-    const paid=rec&&rec.paid;
-    const paidDate=rec&&rec.paidDate?` on ${rec.paidDate}`:'';
-    return `<div class="payment-row ${paid?'paid':'unpaid'}">
-      <div>
-        <strong>${s.name}</strong>${s.subject?` — ${s.subject}`:''}
-        <div style="font-size:13px;color:#666;margin-top:3px">Expected: $${rev.toFixed(2)}${paid?`<span style="color:#2e7d32"> · Paid${paidDate}</span>`:''}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="payment-status ${paid?'paid':'unpaid'}">${paid?'Paid':'Unpaid'}</span>
-        <button class="btn btn-secondary btn-sm" onclick="openMarkPaidModal('${s.id}','${val}',${rev.toFixed(2)})">
-          ${paid?'Edit':'Mark Paid'}
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="openInvoiceModal('${s.id}','${val}')">Invoice</button>
-      </div>
-    </div>`;
-  }).join('');
-}
+window.switchTab = function(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.classList.add('active');
+    if (tab === 'calendar') renderCalendar();
+    if (tab === 'analytics') renderAnalytics();
+};
 
-function openMarkPaidModal(studentId, monthVal, expectedAmount){
-  const s=students.find(x=>x.id===studentId);if(!s)return;
-  const payKey=`${studentId}_${monthVal}`;
-  const rec=paymentRecords[payKey]||{};
-  payModalData={studentId,monthVal,payKey};
-  document.getElementById('pay-modal-body').innerHTML=`
-    <div class="form-group"><label>Student</label><input type="text" value="${s.name}" disabled></div>
-    <div class="form-group"><label>Month</label><input type="text" value="${monthVal}" disabled></div>
-    <div class="form-group"><label>Amount Paid ($)</label><input type="number" id="pay-amount" value="${rec.amount||expectedAmount}" min="0" step="0.01"></div>
-    <div class="form-group"><label>Payment Date</label><input type="date" id="pay-date" value="${rec.paidDate||toLocalDateKey(new Date())}"></div>
-    <div class="form-group"><label>Notes</label><input type="text" id="pay-notes" value="${rec.notes||''}" placeholder="Optional"></div>
-    <div class="form-group">
-      <label><input type="checkbox" id="pay-paid" ${rec.paid?'checked':''} style="width:auto;margin-right:6px">Mark as Paid</label>
-    </div>`;
-  openModal('pay-modal');
-}
-async function savePayment(){
-  if(!payModalData)return;
-  const{payKey}=payModalData;
-  const paid=document.getElementById('pay-paid').checked;
-  const amount=parseFloat(document.getElementById('pay-amount').value)||0;
-  const paidDate=document.getElementById('pay-date').value;
-  const notes=document.getElementById('pay-notes').value;
-  paymentRecords[payKey]={paid,amount,paidDate,notes};
-  await db.collection('users').doc(uid).collection('payments').doc('records').set({records:paymentRecords});
-  closeModal('pay-modal');
-  renderPayments();
-  toast('Payment saved');
-}
-
-function openInvoiceModal(studentId, monthVal){
-  const s=students.find(x=>x.id===studentId);if(!s)return;
-  const[yr,mo]=monthVal.split('-').map(Number);
-  const monthIdx=mo-1;
-  const rate=s.rate||defaultRate;
-  // Build session details
-  const firstDay=new Date(yr,monthIdx,1);
-  const lastDay=new Date(yr,monthIdx+1,0);
-  const sessions=[];
-  (s.schedule||[]).forEach(slot=>{
-    for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
-      if(d.getDay()===jsDay(slot.day)){
-        const mon=mondayOfWeek(new Date(d));
-        const wk=weekStartKey(mon);
-        const key=`${studentId}_${wk}_${slot.day}`;
-        if(attendance[key]&&attendance[key].present){
-          sessions.push({date:toLocalDateKey(new Date(d)),time:slot.time,duration:slot.duration,amount:(slot.duration/60)*rate});
-        }
-      }
-    }
-  });
-  const mm=String(monthIdx+1).padStart(2,'0');
-  oneOffs.filter(o=>o.studentId===studentId&&o.date.startsWith(`${yr}-${mm}`)).forEach(o=>{
-    sessions.push({date:o.date,time:o.time,duration:o.duration,amount:(o.duration/60)*rate,note:'(one-off)'});
-  });
-  sessions.sort((a,b)=>a.date>b.date?1:-1);
-  const total=sessions.reduce((s,x)=>s+x.amount,0);
-  const payKey=`${studentId}_${monthVal}`;
-  const rec=paymentRecords[payKey]||{};
-  const invoiceNum=`INV-${yr}${mm}-${s.id.substring(0,4).toUpperCase()}`;
-  document.getElementById('invoice-preview').innerHTML=`
-    <div class="invoice-header">
-      <div><h2>Invoice</h2><p style="color:#999;font-size:13px">${invoiceNum}</p></div>
-      <div class="invoice-to">
-        <p><strong>To:</strong> ${s.name}</p>
-        <p><strong>Period:</strong> ${fmtMon(new Date(yr,monthIdx,1))}</p>
-        <p><strong>Subject:</strong> ${s.subject||'Tuition'}</p>
-      </div>
-    </div>
-    <table class="invoice-table">
-      <thead><tr><th>Date</th><th>Time</th><th>Duration</th><th>Amount</th></tr></thead>
-      <tbody>
-        ${sessions.map(sess=>`<tr>
-          <td>${sess.date}</td>
-          <td>${sess.time}</td>
-          <td>${sess.duration} min${sess.note?' '+sess.note:''}</td>
-          <td>$${sess.amount.toFixed(2)}</td>
-        </tr>`).join('')}
-      </tbody>
-      <tfoot>
-        <tr><td colspan="3"><strong>Total</strong></td><td><strong>$${total.toFixed(2)}</strong></td></tr>
-        ${rec.paid?`<tr><td colspan="3" style="color:#2e7d32">Payment received${rec.paidDate?' on '+rec.paidDate:''}</td><td style="color:#2e7d32"><strong>$${(rec.amount||total).toFixed(2)}</strong></td></tr>`:''}
-      </tfoot>
-    </table>
-    <div class="invoice-footer">Generated ${toLocalDateKey(new Date())} · Tuition Scheduler</div>`;
-  openModal('invoice-modal');
-}
-
-// ── Export/Import ─────────────────────────────────────────────
-function exportToExcel(){
-  const sel=document.getElementById('payments-month-select');
-  const val=sel.value;
-  if(!val)return;
-  const[yr,mo]=val.split('-').map(Number);
-  const monthIdx=mo-1;
-  const rows=[['Student','Subject','Rate/hr','Sessions Attended','Revenue','Status','Paid','Amount Paid','Paid Date']];
-  students.filter(s=>(s.status||'active')==='active').forEach(s=>{
-    const{present,total}=getMonthAttendance(s.id,yr,monthIdx);
-    const rev=calcMonthRevenueProper(s.id,yr,monthIdx);
-    const payKey=`${s.id}_${val}`;
-    const rec=paymentRecords[payKey]||{};
-    rows.push([s.name,s.subject||'',s.rate||defaultRate,`${present}/${total}`,rev.toFixed(2),rec.paid?'Paid':'Unpaid',rec.paid?'Yes':'No',rec.amount||'',rec.paidDate||'']);
-  });
-  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`payments_${val}.csv`;a.click();
-}
-function exportDateRange(){
-  const fromStr=document.getElementById('export-from').value;
-  const toStr=document.getElementById('export-to').value;
-  if(!fromStr||!toStr){toast('Please select both From and To dates');return;}
-  if(fromStr>toStr){toast('From date must be before To date');return;}
-  const rows=[['Date','Day','Student','Subject','Time','Duration (hrs)','Rate/hr','Amount ($)','Status','Type']];
-  const from=new Date(fromStr+'T00:00:00');
-  const to=new Date(toStr+'T00:00:00');
-  for(let d=new Date(from);d<=to;d.setDate(d.getDate()+1)){
-    const dateKey=toLocalDateKey(d);
-    const dayName=DAYS[d.getDay()===0?6:d.getDay()-1];
-    // Recurring lessons
-    students.forEach(s=>{
-      (s.schedule||[]).forEach(slot=>{
-        if(d.getDay()!==jsDay(slot.day))return;
-        if(s.startDate&&dateKey<s.startDate)return;
-        const mon=mondayOfWeek(new Date(d));
-        const wk=weekStartKey(mon);
-        const key=`${s.id}_${wk}_${slot.day}`;
-        const rec=attendance[key];
-        const status=rec?(rec.present?'Attended':'Cancelled'):'No record';
-        const rate=s.rate||defaultRate;
-        const hrs=(slot.duration||60)/60;
-        const amount=(rec&&rec.present)?(hrs*rate).toFixed(2):'0.00';
-        rows.push([dateKey,dayName,s.name,s.subject||'',slot.time||'',hrs.toFixed(2),rate,amount,status,'Recurring']);
-      });
-    });
-    // One-off lessons
-    oneOffs.filter(o=>o.date===dateKey).forEach(o=>{
-      const s=students.find(x=>x.id===o.studentId);
-      const rate=s?s.rate||defaultRate:defaultRate;
-      const hrs=o.duration/60;
-      rows.push([dateKey,dayName,s?s.name:'Unknown',s?s.subject||'':'',o.time||'',hrs.toFixed(2),rate,(hrs*rate).toFixed(2),'Attended','One-off']);
-    });
-  }
-  if(rows.length===1){toast('No sessions found in date range');return;}
-  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`sessions_${fromStr}_to_${toStr}.csv`;a.click();
-  toast(`Exported ${rows.length-1} sessions`);
-}
-async function exportData(){
-  const data={students,attendance,oneOffs,paymentRecords,exportedAt:new Date().toISOString()};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`tuition_backup_${toLocalDateKey(new Date())}.json`;a.click();
-}
-async function importData(e){
-  const file=e.target.files[0];if(!file)return;
-  const text=await file.text();
-  let data;try{data=JSON.parse(text);}catch{toast('Invalid JSON file');return;}
-  if(!confirm('This will overwrite all existing data. Continue?'))return;
-  const batch=db.batch();
-  // Clear and re-write students
-  const sSnap=await col_ref('students').get();
-  sSnap.docs.forEach(d=>batch.delete(d.ref));
-  (data.students||[]).forEach(s=>{const{id,...rest}=s;batch.set(col_ref('students').doc(id),rest);});
-  // Attendance
-  const aSnap=await col_ref('attendance').get();
-  aSnap.docs.forEach(d=>batch.delete(d.ref));
-  Object.keys(data.attendance||{}).forEach(k=>batch.set(col_ref('attendance').doc(k),data.attendance[k]));
-  // One-offs
-  const oSnap=await col_ref('one_off').get();
-  oSnap.docs.forEach(d=>batch.delete(d.ref));
-  (data.oneOffs||[]).forEach(o=>{const{id,...rest}=o;batch.set(col_ref('one_off').doc(id),rest);});
-  await batch.commit();
-  if(data.paymentRecords)await db.collection('users').doc(uid).collection('payments').doc('records').set({records:data.paymentRecords});
-  await loadAll();
-  renderStudents();renderAttendance();renderCalendar();renderAnalytics();renderPayments();populateOneOffStudents();
-  toast('Data imported successfully');
-  e.target.value='';
-}
-
-// ── Danger zone ───────────────────────────────────────────────
-async function clearAttendanceOnly(){
-  if(!confirm('Clear ALL attendance records? This cannot be undone.'))return;
-  const snap=await col_ref('attendance').get();
-  const batch=db.batch();snap.docs.forEach(d=>batch.delete(d.ref));await batch.commit();
-  attendance={};renderAttendance();renderAnalytics();toast('Attendance cleared');
-}
-async function clearOneOffOnly(){
-  if(!confirm('Clear all one-off sessions?'))return;
-  const snap=await col_ref('one_off').get();
-  const batch=db.batch();snap.docs.forEach(d=>batch.delete(d.ref));await batch.commit();
-  oneOffs=[];renderOneOffs();renderCalendar();toast('One-off sessions cleared');
-}
-async function clearAllData(){
-  if(!confirm('Clear ALL data (students, attendance, one-offs, payments)? This cannot be undone.'))return;
-  const[sSnap,aSnap,oSnap]=await Promise.all([col_ref('students').get(),col_ref('attendance').get(),col_ref('one_off').get()]);
-  const batch=db.batch();
-  sSnap.docs.forEach(d=>batch.delete(d.ref));
-  aSnap.docs.forEach(d=>batch.delete(d.ref));
-  oSnap.docs.forEach(d=>batch.delete(d.ref));
-  await batch.commit();
-  await db.collection('users').doc(uid).collection('payments').doc('records').delete();
-  students=[];attendance={};oneOffs=[];paymentRecords={};
-  renderStudents();renderAttendance();renderCalendar();renderAnalytics();renderPayments();populateOneOffStudents();
-  toast('All data cleared');
-}
-
-// ── Tab switching ─────────────────────────────────────────────
-function switchTab(name){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active');
-  document.getElementById('tab-btn-'+name).classList.add('active');
-  if(name==='calendar'){if(calView==='week')renderWeekView();else renderCalendar();}
-  if(name==='analytics')renderAnalytics();
-  if(name==='payments'){populatePaymentsMonthSelect();renderPayments();}
-  if(name==='settings'){
-    const now=new Date();
-    const firstOfMonth=new Date(now.getFullYear(),now.getMonth(),1);
-    if(!document.getElementById('export-from').value)document.getElementById('export-from').value=toLocalDateKey(firstOfMonth);
-    if(!document.getElementById('export-to').value)document.getElementById('export-to').value=toLocalDateKey(now);
-  }
-}
-
-// ── Init on load ──────────────────────────────────────────────
-window.addEventListener('click',e=>{
-  if(e.target.classList.contains('modal-overlay'))e.target.classList.remove('open');
-});
+console.log('Script loaded successfully');
 </script>
+
 </body>
 </html>
