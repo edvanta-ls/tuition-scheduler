@@ -272,6 +272,7 @@ label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:4px}
 
   <!-- CALENDAR TAB -->
   <div class="tab" id="tab-calendar">
+    <div id="cal-revenue-summary" style="background:#fff;border-radius:8px;padding:8px 14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07)"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button class="btn btn-primary btn-sm" id="cal-view-month-btn" onclick="setCalView('month')">Month</button>
       <button class="btn btn-secondary btn-sm" id="cal-view-week-btn" onclick="setCalView('week')">Week</button>
@@ -454,6 +455,36 @@ label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:4px}
     <button class="close-btn" onclick="closeModal('att-modal')">&#215;</button>
     <h2>Lesson</h2>
     <div id="att-modal-body"></div>
+  </div>
+</div>
+
+<!-- Quick add one-off modal (from calendar week view + button) -->
+<div class="modal-overlay" id="quick-oneoff-modal">
+  <div class="modal" style="max-width:380px">
+    <button class="close-btn" onclick="closeModal('quick-oneoff-modal')">&#215;</button>
+    <h2>Add One-Off Session</h2>
+    <div class="form-group">
+      <label>Student</label>
+      <select id="qo-student" style="width:100%"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="qo-date">
+      </div>
+      <div class="form-group">
+        <label>Time</label>
+        <input type="time" id="qo-time">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Duration (min)</label>
+      <input type="number" id="qo-dur" value="60" min="15" step="15">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('quick-oneoff-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveQuickOneOff()">Add Session</button>
+    </div>
   </div>
 </div>
 
@@ -849,6 +880,7 @@ function renderCalendar(){
   const endDay=lastDay.getDay()===0?0:7-lastDay.getDay();
   for(let p=0;p<endDay;p++)html+='<div class="cal-cell other-month"></div>';
   grid.innerHTML=html;
+  updateCalendarRevenueSummary();
 }
 
 // ── Weekly time-grid view ─────────────────────────────────────
@@ -949,6 +981,7 @@ function renderWeekView(){
     </div>`;
   }
   document.getElementById('week-time-grid').innerHTML=`<div class="tg-scroll"><div class="tg-wrap"><div class="tg-labels">${labelsHtml}</div><div class="tg-days">${daysHtml}</div></div></div>`;
+  updateCalendarRevenueSummary();
 }
 function openQuickOneOffFromCal(dateKey){switchTab('students');document.getElementById('oneoff-date').value=dateKey;}
 function openLessonAttModal(studentId,wk,dayIdx){
@@ -961,11 +994,19 @@ function openLessonAttModal(studentId,wk,dayIdx){
   document.getElementById('att-modal-body').innerHTML=`
     <p style="font-size:15px;font-weight:600;margin-bottom:4px">${s.name}</p>
     <p style="font-size:13px;color:#666;margin-bottom:16px">${s.subject||''} &middot; ${slot.time}${endTime?'–'+endTime:''}</p>
-    <p style="font-size:13px;margin-bottom:14px">Current: <strong style="color:${status==='attended'?'#2e7d32':status==='cancelled'?'#c62828':'#888'}">${status||'Not marked'}</strong></p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <p style="font-size:13px;margin-bottom:14px">Status: <strong style="color:${status==='attended'?'#2e7d32':status==='cancelled'?'#c62828':'#888'}">${status||'Not marked'}</strong></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
       <button class="btn btn-success" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},true)">Attended</button>
       <button class="btn btn-danger" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},false)">Cancelled</button>
       <button class="btn btn-secondary" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},null)">Clear</button>
+    </div>
+    <div style="border-top:1px solid #eee;padding-top:12px">
+      <p style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px">Reschedule to another date:</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="date" id="reschedule-date" style="flex:1;padding:7px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px">
+        <button class="btn btn-secondary btn-sm" onclick="rescheduleLesson('${studentId}','${wk}',${dayIdx})">Reschedule</button>
+      </div>
+      <p style="font-size:11px;color:#aaa;margin-top:5px">Marks lesson cancelled &amp; creates a one-off on the new date</p>
     </div>`;
   openModal('att-modal');
 }
@@ -979,14 +1020,119 @@ async function setLessonStatus(studentId,wk,dayIdx,present){
 function openOneOffAttModal(id){
   const o=oneOffs.find(x=>x.id===id);if(!o)return;
   const s=students.find(x=>x.id===o.studentId);
+  const endTime=calcEndTime(o.time,o.duration||60);
   document.getElementById('att-modal-body').innerHTML=`
     <p style="font-size:15px;font-weight:600;margin-bottom:4px">${s?s.name:'Unknown'} <span style="font-size:11px;color:#888">(one-off)</span></p>
-    <p style="font-size:13px;color:#666;margin-bottom:16px">${o.date} &middot; ${o.time} &middot; ${o.duration}min</p>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">${o.date} &middot; ${o.time}–${endTime} &middot; ${o.duration}min</p>
     <div style="display:flex;gap:8px">
       <button class="btn btn-danger btn-sm" style="flex:1" onclick="deleteOneOff('${id}');closeModal('att-modal')">Delete session</button>
       <button class="btn btn-secondary btn-sm" style="flex:1" onclick="closeModal('att-modal')">Close</button>
     </div>`;
   openModal('att-modal');
+}
+async function rescheduleLesson(studentId,wk,dayIdx){
+  const rescDate=document.getElementById('reschedule-date').value;
+  if(!rescDate){toast('Please select a reschedule date');return;}
+  const s=students.find(x=>x.id===studentId);if(!s)return;
+  const slot=(s.schedule||[]).find(sl=>sl.day===parseInt(dayIdx));if(!slot)return;
+  // Mark original as cancelled
+  const key=`${studentId}_${wk}_${parseInt(dayIdx)}`;
+  attendance[key]={present:false,studentId,weekStart:wk,dayIndex:parseInt(dayIdx)};
+  await col_ref('attendance').doc(key).set(attendance[key]);
+  // Create a one-off on the new date
+  const data={studentId,date:rescDate,time:slot.time,duration:slot.duration||60,createdAt:Date.now()};
+  const ref=await col_ref('one_off').add(data);
+  oneOffs.push({id:ref.id,...data,studentId:String(studentId)});
+  closeModal('att-modal');
+  renderWeekView();renderAttendance();renderOneOffs();updateCalendarRevenueSummary();
+  toast('Rescheduled — one-off created for '+rescDate);
+}
+function openQuickOneOffFromCal(dateKey){
+  document.getElementById('qo-student').innerHTML=students.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('qo-date').value=dateKey;
+  document.getElementById('qo-time').value='';
+  document.getElementById('qo-dur').value='60';
+  openModal('quick-oneoff-modal');
+}
+async function saveQuickOneOff(){
+  const studentId=document.getElementById('qo-student').value;
+  const date=document.getElementById('qo-date').value;
+  const time=document.getElementById('qo-time').value;
+  const duration=parseInt(document.getElementById('qo-dur').value)||60;
+  if(!studentId||!date||!time){toast('Please fill in all fields');return;}
+  const data={studentId,date,time,duration,createdAt:Date.now()};
+  const ref=await col_ref('one_off').add(data);
+  oneOffs.push({id:ref.id,...data});
+  renderOneOffs();renderCalendar();if(calView==='week')renderWeekView();
+  closeModal('quick-oneoff-modal');
+  toast('One-off session added');
+}
+
+// ── Calendar revenue summary ──────────────────────────────────
+function updateCalendarRevenueSummary(){
+  const el=document.getElementById('cal-revenue-summary');
+  if(!el)return;
+  if(calView==='month'){
+    const y=currentMonthView.getFullYear(),mo=currentMonthView.getMonth();
+    const firstDay=new Date(y,mo,1);const lastDay=new Date(y,mo+1,0);
+    let earned=0,projected=0,earnedSess=0,totalSess=0;
+    students.filter(s=>(s.status||'active')==='active').forEach(s=>{
+      const rate=s.rate||defaultRate;
+      (s.schedule||[]).forEach(slot=>{
+        for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
+          if(d.getDay()===jsDay(slot.day)){
+            const dk=toLocalDateKey(new Date(d));
+            if(s.startDate&&dk<s.startDate)continue;
+            const mon=mondayOfWeek(new Date(d));
+            const wk=weekStartKey(mon);
+            const key=`${s.id}_${wk}_${slot.day}`;
+            const rev=(slot.duration||60)/60*rate;
+            projected+=rev;totalSess++;
+            if(attendance[key]&&attendance[key].present){earned+=rev;earnedSess++;}
+          }
+        }
+      });
+    });
+    const mm=String(mo+1).padStart(2,'0');
+    oneOffs.filter(o=>o.date.startsWith(`${y}-${mm}`)).forEach(o=>{
+      const s=students.find(x=>x.id===o.studentId);
+      const rev=(o.duration||60)/60*(s?s.rate||defaultRate:defaultRate);
+      earned+=rev;projected+=rev;earnedSess++;totalSess++;
+    });
+    el.innerHTML=`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:13px">
+      <span style="color:#2e7d32;font-weight:700;font-size:15px">Earned: $${earned.toFixed(2)}</span>
+      <span style="color:#4a4a8a;font-weight:600">Projected: $${projected.toFixed(2)}</span>
+      <span style="color:#666">${earnedSess} attended · ${totalSess} sessions total</span>
+    </div>`;
+  } else {
+    const wk=weekStartKey(currentWeekCal);
+    let earned=0,projected=0;
+    students.filter(s=>(s.status||'active')==='active').forEach(s=>{
+      const rate=s.rate||defaultRate;
+      (s.schedule||[]).forEach(slot=>{
+        const slotDate=new Date(currentWeekCal);slotDate.setDate(slotDate.getDate()+slot.day);
+        if(s.startDate&&toLocalDateKey(slotDate)<s.startDate)return;
+        const key=`${s.id}_${wk}_${slot.day}`;
+        const rev=(slot.duration||60)/60*rate;
+        projected+=rev;
+        if(attendance[key]&&attendance[key].present)earned+=rev;
+      });
+    });
+    for(let i=0;i<7;i++){
+      const dayDate=new Date(currentWeekCal);dayDate.setDate(dayDate.getDate()+i);
+      const dk=toLocalDateKey(dayDate);
+      oneOffs.filter(o=>o.date===dk).forEach(o=>{
+        const s=students.find(x=>x.id===o.studentId);
+        const rev=(o.duration||60)/60*(s?s.rate||defaultRate:defaultRate);
+        earned+=rev;projected+=rev;
+      });
+    }
+    const weekEnd=new Date(currentWeekCal);weekEnd.setDate(weekEnd.getDate()+6);
+    el.innerHTML=`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;font-size:13px">
+      <span style="color:#2e7d32;font-weight:700;font-size:15px">Week Earned: $${earned.toFixed(2)}</span>
+      <span style="color:#4a4a8a;font-weight:600">Week Total: $${projected.toFixed(2)}</span>
+    </div>`;
+  }
 }
 
 // ── Analytics ─────────────────────────────────────────────────
@@ -1089,6 +1235,26 @@ function calcMonthRevenueProper(studentId, year, month){
   return rev;
 }
 
+function calcMonthLostRevenue(studentId, year, month){
+  const s=students.find(x=>x.id===studentId);if(!s)return 0;
+  const rate=s.rate||defaultRate;
+  let lost=0;
+  const firstDay=new Date(year,month,1);
+  const lastDay=new Date(year,month+1,0);
+  (s.schedule||[]).forEach(slot=>{
+    for(let d=new Date(firstDay);d<=lastDay;d.setDate(d.getDate()+1)){
+      if(d.getDay()===jsDay(slot.day)){
+        const mon=mondayOfWeek(new Date(d));
+        const wk=weekStartKey(mon);
+        const key=`${studentId}_${wk}_${slot.day}`;
+        if(attendance[key]&&!attendance[key].present){
+          lost+=(slot.duration||60)/60*rate;
+        }
+      }
+    }
+  });
+  return lost;
+}
 function renderAnalytics(){
   const y=analyticsMonth.getFullYear(),m=analyticsMonth.getMonth();
   document.getElementById('analytics-month-label').textContent=fmtMon(analyticsMonth);
@@ -1136,36 +1302,47 @@ function renderAnalytics(){
     const mRate=total>0?absent/total:null;
     const allRate=calcAllTimeCancellationRate(s.id);
     const rev=calcMonthRevenueProper(s.id,y,m);
+    const lostRev=calcMonthLostRevenue(s.id,y,m);
     let warnHtml='';
     if(mRate!==null&&total>=3&&mRate>0.35&&allRate!==null&&mRate>allRate+0.2){
-      warnHtml=`<div class="canc-warn">⚠️ Higher cancellations this month (${Math.round(mRate*100)}% vs ${Math.round(allRate*100)}% avg)</div>`;
+      warnHtml=`<div class="canc-warn">⚠ Higher cancellations this month (${Math.round(mRate*100)}% vs ${Math.round(allRate*100)}% avg)</div>`;
     }
     const attPct=total>0?Math.round(present/total*100):0;
-    // One-off count this month
     const mm=String(m+1).padStart(2,'0');
     const oCount=oneOffs.filter(o=>o.studentId===s.id&&(o.date||'').startsWith(`${y}-${mm}`)).length;
     // All-time totals
     let atAll=0,absAll=0;
     Object.keys(attendance).forEach(k=>{if(k.startsWith(s.id+'_')){const r=attendance[k];if(r.present)atAll++;else absAll++;}});
     const allTotal=atAll+absAll;
-    // Schedule summary
+    const allAttPct=allTotal>0?Math.round(atAll/allTotal*100):null;
+    // All-time earned (avg slot duration approximation)
+    const avgDur=(s.schedule||[]).reduce((sum,sl)=>sum+(sl.duration||60),0)/Math.max((s.schedule||[]).length,1);
+    const allTimeEarned=atAll*(avgDur/60)*(s.rate||defaultRate);
     const schedSummary=(s.schedule||[]).map(sl=>`${DAYS[sl.day]} ${sl.time} (${sl.duration||60}min)`).join(' · ');
     html+=`<div class="student-analytics-card">
-      <h4 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+      <h4 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px">
         <span>${s.name}${s.subject?' — '+s.subject:''}</span>
-        <span style="font-size:12px;color:#888;font-weight:400">${schedSummary}</span>
+        <span style="font-size:11px;color:#aaa;font-weight:400">${schedSummary}</span>
       </h4>
+      <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">This Month</div>
       <div class="mini-stats">
-        <div class="mini-stat"><strong>${present}/${total}</strong>This month</div>
+        <div class="mini-stat"><strong style="color:#2e7d32">${present}</strong>Attended</div>
+        <div class="mini-stat"><strong style="color:#c62828">${absent}</strong>Cancelled</div>
+        <div class="mini-stat"><strong style="color:#2e7d32">$${rev.toFixed(0)}</strong>Earned</div>
+        ${lostRev>0?`<div class="mini-stat"><strong style="color:#e65100">$${lostRev.toFixed(0)}</strong>Lost</div>`:''}
+        ${oCount>0?`<div class="mini-stat"><strong style="color:#5c6bc0">${oCount}</strong>One-offs</div>`:''}
         <div class="mini-stat"><strong>${attPct}%</strong>Att. rate</div>
-        <div class="mini-stat"><strong>$${rev.toFixed(0)}</strong>Revenue</div>
-        ${oCount>0?`<div class="mini-stat"><strong>${oCount}</strong>One-offs</div>`:''}
-        ${allTotal>0?`<div class="mini-stat"><strong>${atAll}/${allTotal}</strong>All-time</div>`:''}
-        ${allRate!==null?`<div class="mini-stat"><strong>${Math.round((1-allRate)*100)}%</strong>All-time att.</div>`:''}
       </div>
-      <div class="progress-bar-wrap">
+      <div class="progress-bar-wrap" style="margin-bottom:10px">
         <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${attPct}%"></div></div>
       </div>
+      ${allTotal>0?`
+      <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">All Time</div>
+      <div class="mini-stats">
+        <div class="mini-stat"><strong>${atAll}/${allTotal}</strong>Sessions</div>
+        ${allAttPct!==null?`<div class="mini-stat"><strong>${allAttPct}%</strong>Att. rate</div>`:''}
+        <div class="mini-stat"><strong>$${allTimeEarned.toFixed(0)}</strong>Total earned</div>
+      </div>`:''}
       ${warnHtml}
     </div>`;
   });
