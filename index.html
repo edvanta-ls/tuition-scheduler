@@ -1,1118 +1,536 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Tuition Scheduler</title>
+    <title>Tuition Scheduler</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            padding: 16px;
-        }
-
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; padding: 16px; }
         .container { max-width: 1000px; margin: 0 auto; }
         h1 { font-size: 28px; margin-bottom: 24px; color: #222; }
         h2 { font-size: 18px; margin: 20px 0 12px; color: #333; }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
-            border-bottom: 2px solid #e0e0e0;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            padding: 12px 16px;
-            background: none;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: #666;
-            transition: all 0.3s;
-        }
+        .tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 16px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; transition: all 0.3s; }
         .tab-btn.active { color: #1976d2; border-bottom-color: #1976d2; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
         .form-group { margin-bottom: 16px; }
         label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; color: #333; }
-        input, select, textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-        }
+        input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; }
         input:focus, select:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.1); }
-
-        button {
-            background: #1976d2;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
+        button { background: #1976d2; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.3s; }
         button:hover { background: #1565c0; }
         button.secondary { background: #e0e0e0; color: #333; }
         button.secondary:hover { background: #d0d0d0; }
-        button.success-btn { background: #388e3c; }
-        button.success-btn:hover { background: #2e7d32; }
-        button.danger-btn { background: #ffcdd2; color: #b71c1c; }
-        button.danger-btn:hover { background: #ef9a9a; }
-
-        .student-card {
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-        .student-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 16px;
-        }
-        .student-name { font-size: 20px; font-weight: 600; color: #1976d2; }
-        .student-actions { display: flex; gap: 8px; }
-        .student-actions button { padding: 8px 12px; font-size: 12px; }
-
-        .lesson-slots {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .lesson-slot {
-            background: #e3f2fd;
-            border: 1px solid #bbdefb;
-            border-radius: 6px;
-            padding: 12px;
-            text-align: center;
-        }
-        .lesson-slot-time { font-weight: 600; font-size: 16px; color: #1565c0; margin-bottom: 4px; }
-        .lesson-slot-day { font-size: 12px; color: #666; margin-bottom: 8px; }
-        .lesson-slot-info { font-size: 11px; color: #999; }
-
+        .student-card { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
         @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
-
-        .empty-state { text-align: center; padding: 40px 20px; color: #999; }
-        .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
-
-        .week-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            gap: 12px;
-        }
+        .lesson-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .lesson-slot { background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 12px; text-align: center; }
+        .lesson-slot-time { font-weight: 600; font-size: 16px; color: #1565c0; margin-bottom: 4px; }
+        .lesson-slot-day { font-size: 12px; color: #666; margin-bottom: 8px; }
+        .stat-card { background: #f5f5f5; border-radius: 6px; padding: 12px; }
+        .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+        .stat-value { font-size: 18px; font-weight: 600; color: #1976d2; }
+        .revenue-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .week-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
         .week-info { text-align: center; font-size: 14px; color: #666; flex: 1; }
-        .week-nav button { padding: 8px 16px; font-size: 12px; }
-
-        .calendar-hint { font-size: 12px; color: #999; text-align: center; margin-bottom: 16px; }
-
-        .calendar-grid { margin-bottom: 20px; }
-        .day-column {
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .day-header {
-            background: #f5f5f5;
-            padding: 12px 8px;
-            text-align: center;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .day-number { display: block; font-size: 16px; color: #333; margin-bottom: 2px; }
-        .day-name { display: block; font-size: 11px; color: #999; }
-        .day-content { flex: 1; padding: 8px; min-height: 200px; overflow-y: auto; }
-
-        .lesson-block {
-            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
-            color: white;
-            padding: 8px;
-            border-radius: 4px;
-            margin-bottom: 6px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: transform 0.2s, opacity 0.2s;
-            user-select: none;
-        }
-        .lesson-block:hover { transform: scale(1.02); }
-        .lesson-block.attended { background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%); }
-        .lesson-block.cancelled {
-            background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
-            opacity: 0.8;
-            text-decoration: line-through;
-        }
-        .lesson-time { font-weight: 600; margin-bottom: 2px; }
-        .lesson-student { font-size: 10px; opacity: 0.9; }
-        .lesson-revenue { font-size: 10px; opacity: 0.85; }
-        .lesson-status { font-size: 10px; margin-top: 3px; font-weight: 600; letter-spacing: 0.3px; }
-
-        .day-empty { color: #ccc; text-align: center; padding: 40px 8px; font-size: 24px; }
-
-        .today { background: #e3f2fd; border: 1px solid #1976d2 !important; }
-        .today .day-header { background: #bbdefb; font-weight: 700; }
-        .today .day-number { color: #1565c0; }
-
-        @media (max-width: 600px) {
-            .student-header { flex-direction: column; }
-            .student-actions { margin-top: 12px; width: 100%; }
-            .student-actions button { flex: 1; }
-        }
-
-        /* Time Grid Calendar */
         .tg-scroll { overflow-x: auto; overflow-y: auto; max-height: 80vh; border: 1px solid #e0e0e0; border-radius: 8px; background: white; }
         .tg-wrap { display: flex; min-width: 600px; }
         .tg-labels { width: 50px; flex-shrink: 0; border-right: 1px solid #e0e0e0; position: sticky; left: 0; background: white; z-index: 3; }
         .tg-label-header { height: 48px; border-bottom: 1px solid #e0e0e0; background: #f5f5f5; }
-        .tg-label {
-            height: 60px; display: flex; align-items: flex-start;
-            justify-content: flex-end; padding: 3px 6px 0 0;
-            font-size: 10px; color: #bbb; border-bottom: 1px solid #f0f0f0;
-        }
+        .tg-label { height: 60px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 3px 6px 0 0; font-size: 10px; color: #bbb; border-bottom: 1px solid #f0f0f0; }
         .tg-days { display: flex; flex: 1; }
         .tg-day { flex: 1; min-width: 80px; border-right: 1px solid #e0e0e0; }
         .tg-day:last-child { border-right: none; }
-        .tg-day-header {
-            height: 48px; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
-            position: sticky; top: 0; z-index: 2;
-        }
+        .tg-day-header { height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 2; }
         .tg-day.tg-today .tg-day-header { background: #bbdefb; }
         .tg-day.tg-today .tg-day-num { color: #1565c0; font-weight: 700; }
         .tg-day-num { font-size: 16px; font-weight: 600; color: #333; line-height: 1; }
         .tg-day-name { font-size: 10px; color: #999; margin-top: 2px; }
         .tg-day-body { position: relative; }
         .tg-hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid #ebebeb; pointer-events: none; }
-        .tg-half-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #f5f5f5; pointer-events: none; }
-        .tg-lesson {
-            position: absolute; left: 2px; right: 2px;
-            background: linear-gradient(135deg, #1976d2, #1565c0);
-            color: white; border-radius: 4px; padding: 3px 5px;
-            font-size: 10px; cursor: pointer; overflow: hidden; z-index: 1;
-            transition: filter 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            user-select: none;
-        }
+        .tg-lesson { position: absolute; left: 2px; right: 2px; background: linear-gradient(135deg, #1976d2, #1565c0); color: white; border-radius: 4px; padding: 3px 5px; font-size: 10px; cursor: pointer; overflow: hidden; z-index: 1; transition: filter 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         .tg-lesson:hover { filter: brightness(1.12); }
         .tg-lesson.attended { background: linear-gradient(135deg, #388e3c, #2e7d32); }
         .tg-lesson.cancelled { background: linear-gradient(135deg, #c62828, #b71c1c); opacity: 0.75; }
         .tg-lesson-time { font-weight: 700; font-size: 10px; white-space: nowrap; }
-        .tg-lesson-name { font-size: 10px; opacity: 0.92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tg-lesson-detail { font-size: 9px; opacity: 0.8; margin-top: 1px; }
-
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            max-width: 500px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .modal-header h2 { margin: 0; font-size: 20px; }
-        .modal-close {
-            background: none; border: none; font-size: 24px; cursor: pointer;
-            padding: 0; width: 30px; height: 30px;
-            display: flex; align-items: center; justify-content: center; color: #999;
-        }
-
-        .success-msg {
-            background: #c8e6c9; color: #2e7d32;
-            padding: 12px; border-radius: 6px; margin-bottom: 16px; display: none;
-        }
-
-        .revenue-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px; }
-        .stat-card { background: #f5f5f5; border-radius: 6px; padding: 12px; }
-        .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
-        .stat-value { font-size: 18px; font-weight: 600; color: #1976d2; }
-
-        .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-        @media (max-width: 600px) { .analytics-grid { grid-template-columns: repeat(2, 1fr); } }
-
-        .attendance-bar-wrap { background: #e0e0e0; border-radius: 99px; height: 8px; margin-top: 6px; overflow: hidden; }
-        .attendance-bar { height: 8px; border-radius: 99px; background: #388e3c; transition: width 0.4s; }
-        .attendance-bar.low { background: #c62828; }
-        .attendance-bar.mid { background: #f57c00; }
-
-        .legend { display: flex; gap: 16px; font-size: 12px; color: #666; margin-bottom: 12px; flex-wrap: wrap; }
-        .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-
-        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-
-        /* Login screen */
-        .login-screen {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-        .login-card {
-            background: white;
-            border-radius: 20px;
-            padding: 48px 40px;
-            text-align: center;
-            max-width: 380px;
-            width: 100%;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-        }
-        .google-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            background: white;
-            color: #333;
-            border: 2px solid #e0e0e0;
-            padding: 14px 24px;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 500;
-            width: 100%;
-            cursor: pointer;
-            transition: box-shadow 0.2s, border-color 0.2s;
-        }
-        .google-btn:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.15); border-color: #bbb; background: white; }
-
-        /* User profile in settings */
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 20px;
-        }
-        .user-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: #1976d2;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            font-weight: 600;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .user-avatar img { width: 100%; height: 100%; object-fit: cover; display: none; }
+        .login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .login-card { background: white; border-radius: 20px; padding: 48px 40px; text-align: center; max-width: 380px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+        .google-btn { display: flex; align-items: center; justify-content: center; gap: 12px; background: white; color: #333; border: 2px solid #e0e0e0; padding: 14px 24px; border-radius: 10px; font-size: 15px; font-weight: 500; width: 100%; cursor: pointer; transition: box-shadow 0.2s; }
+        .google-btn:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+        .user-profile { display: flex; align-items: center; gap: 16px; background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+        .user-avatar { width: 48px; height: 48px; border-radius: 50%; background: #1976d2; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; flex-shrink: 0; }
         .user-info { flex: 1; }
         .user-name { font-weight: 600; font-size: 15px; }
         .user-email-text { font-size: 13px; color: #999; margin-top: 2px; }
-
-        /* Loading indicator */
-        .loading-bar {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            height: 3px;
-            background: #1976d2;
-            z-index: 9998;
-            display: none;
-            animation: loadpulse 1s infinite;
-        }
-        @keyframes loadpulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+        .success-msg { background: #c8e6c9; color: #2e7d32; padding: 12px; border-radius: 6px; margin-bottom: 16px; display: none; }
     </style>
 </head>
 <body>
 
-    <!-- LOADING BAR -->
-    <div class="loading-bar" id="loadingBar"></div>
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <div style="font-size: 52px; margin-bottom: 16px;">📚</div>
+        <h1 style="font-size: 24px; color: #222; margin-bottom: 8px;">Tuition Scheduler</h1>
+        <p style="color: #999; font-size: 14px; margin-bottom: 32px;">Sign in to sync your schedule</p>
+        <button class="google-btn" onclick="window.signInWithGoogle()">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign in with Google
+        </button>
+    </div>
+</div>
 
-    <!-- LOGIN SCREEN -->
-    <div class="login-screen" id="loginScreen">
-        <div class="login-card">
-            <div style="font-size: 52px; margin-bottom: 16px;">📚</div>
-            <h1 style="font-size: 24px; color: #222; margin-bottom: 8px;">Tuition Scheduler</h1>
-            <p style="color: #999; font-size: 14px; margin-bottom: 32px; line-height: 1.5;">Sign in to sync your schedule across PC, iPhone, and iPad</p>
-            <button class="google-btn" onclick="signInWithGoogle()">
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Sign in with Google
-            </button>
-        </div>
+<div class="container" id="appContainer" style="display:none;">
+    <h1>📚 Tuition Scheduler</h1>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="window.switchTab('students')">My Students</button>
+        <button class="tab-btn" onclick="window.switchTab('calendar')">Calendar</button>
+        <button class="tab-btn" onclick="window.switchTab('analytics')">Analytics</button>
+        <button class="tab-btn" onclick="window.switchTab('settings')">Settings</button>
     </div>
 
-    <!-- APP -->
-    <div class="container" id="appContainer" style="display:none;">
-        <h1>📚 Weekly Tuition Scheduler</h1>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('students', event)">My Students</button>
-            <button class="tab-btn" onclick="switchTab('calendar', event)">Weekly Calendar</button>
-            <button class="tab-btn" onclick="switchTab('analytics', event)">Analytics</button>
-            <button class="tab-btn" onclick="switchTab('revenue', event)">Revenue</button>
-            <button class="tab-btn" onclick="switchTab('settings', event)">Settings</button>
+<div id="students" class="tab-content active">
+    <div class="success-msg" id="successMsg"></div>
+    <h2>Add New Student</h2>
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Student Name</label>
+            <input type="text" id="studentName">
         </div>
-
-        <!-- STUDENTS TAB -->
-        <div id="students" class="tab-content active">
-            <div class="success-msg" id="successMsg"></div>
-            <h2>Add New Student</h2>
-            <div class="grid-2">
-                <div class="form-group">
-                    <label>Student Name</label>
-                    <input type="text" id="studentName" placeholder="e.g., John Doe">
-                </div>
-                <div class="form-group">
-                    <label>Subject</label>
-                    <input type="text" id="subject" placeholder="e.g., Math, Chemistry">
-                </div>
-            </div>
-            <div class="grid-2">
-                <div class="form-group">
-                    <label>Hourly Rate ($)</label>
-                    <input type="number" id="hourlyRate" value="50" min="0" step="5">
-                </div>
-                <div class="form-group">
-                    <label>Duration per Session (hours)</label>
-                    <input type="number" id="duration" value="1" min="0.5" step="0.5">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Notes (optional)</label>
-                <textarea id="notes" rows="2" placeholder="Any additional notes..."></textarea>
-            </div>
-            <h2 style="margin-top: 28px;">Select Weekly Schedule</h2>
-            <p style="font-size: 13px; color: #666; margin-bottom: 12px;">Choose which days and times this student has lessons each week:</p>
-            <div id="scheduleSelector"></div>
-            <button onclick="addStudent()" style="margin-top: 20px;">Add Student with Schedule</button>
-            <h2 style="margin-top: 32px;">My Students</h2>
-            <div id="studentsList"></div>
-        </div>
-
-        <!-- CALENDAR TAB -->
-        <div id="calendar" class="tab-content">
-            <div class="week-nav">
-                <button class="secondary" onclick="previousWeek()">← Previous</button>
-                <div class="week-info"><span id="weekDisplay">Loading...</span></div>
-                <button class="secondary" onclick="nextWeek()">Next →</button>
-            </div>
-            <p class="calendar-hint">Click a lesson to mark: <strong style="color:#1976d2">Blue</strong> = Pending · <strong style="color:#388e3c">Green</strong> = Attended · <strong style="color:#c62828">Red</strong> = Cancelled</p>
-            <div id="calendarGrid" class="calendar-grid"></div>
-        </div>
-
-        <!-- ANALYTICS TAB -->
-        <div id="analytics" class="tab-content">
-            <h2>Attendance Analytics</h2>
-            <div class="legend">
-                <span><span class="legend-dot" style="background:#388e3c"></span>Attended</span>
-                <span><span class="legend-dot" style="background:#c62828"></span>Cancelled</span>
-                <span><span class="legend-dot" style="background:#9e9e9e"></span>No record yet</span>
-            </div>
-            <div id="analyticsList"></div>
-        </div>
-
-        <!-- REVENUE TAB -->
-        <div id="revenue" class="tab-content">
-            <h2>Revenue Overview</h2>
-            <div id="revenueList"></div>
-        </div>
-
-        <!-- SETTINGS TAB -->
-        <div id="settings" class="tab-content">
-            <h2>Account</h2>
-            <div class="user-profile">
-                <div class="user-avatar" id="avatarWrap">
-                    <img id="userPhoto" src="" alt="">
-                    <span id="avatarInitial">?</span>
-                </div>
-                <div class="user-info">
-                    <div class="user-name" id="userDisplayName">—</div>
-                    <div class="user-email-text" id="userEmailText">—</div>
-                </div>
-                <button class="secondary" onclick="signOutUser()" style="padding: 8px 14px; font-size: 13px;">Sign Out</button>
-            </div>
-
-            <h2>Export</h2>
-            <div class="btn-row">
-                <button class="success-btn" onclick="exportToExcel()">📊 Export Sessions (Excel)</button>
-                <button onclick="exportData()">📥 Backup Data (JSON)</button>
-            </div>
-            <p style="font-size: 12px; color: #999; margin-top: 8px;">Excel export covers sessions for the currently viewed week.</p>
-
-            <h2 style="margin-top: 32px;">Import</h2>
-            <button class="secondary" onclick="document.getElementById('importFile').click()">📤 Restore from JSON</button>
-            <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
-
-            <h2 style="margin-top: 32px;">Danger Zone</h2>
-            <button class="danger-btn" onclick="clearAllData()">🗑️ Delete All My Data</button>
+        <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="subject">
         </div>
     </div>
-
-    <!-- EDIT STUDENT MODAL -->
-    <div class="modal" id="editModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Student</h2>
-                <button class="modal-close" onclick="closeModal('editModal')">×</button>
-            </div>
-            <div id="editContent"></div>
+    <div class="grid-2">
+        <div class="form-group">
+            <label>Hourly Rate ($)</label>
+            <input type="number" id="hourlyRate" value="50">
+        </div>
+        <div class="form-group">
+            <label>Duration (hours)</label>
+            <input type="number" id="duration" value="1" step="0.5">
         </div>
     </div>
+    <h2 style="margin-top: 28px;">Select Weekly Schedule</h2>
+    <div id="scheduleSelector"></div>
+    <button onclick="window.addStudent()" style="margin-top: 20px;">Add Student</button>
+    <h2 style="margin-top: 32px;">My Students</h2>
+    <div id="studentsList"></div>
+</div>
 
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
-            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-        import { getFirestore, doc, collection, setDoc, deleteDoc, onSnapshot }
-            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+<div id="calendar" class="tab-content">
+    <div class="week-nav">
+        <button class="secondary" onclick="window.previousWeek()">← Previous</button>
+        <div class="week-info" id="weekDisplay">Loading...</div>
+        <button class="secondary" onclick="window.nextWeek()">Next →</button>
+    </div>
+    <div class="revenue-stats-grid">
+        <div class="student-card">
+            <div class="stat-label">Revenue to Date (This Month)</div>
+            <div class="stat-value" id="calendarRevenueToDate">$0.00</div>
+        </div>
+        <div class="student-card">
+            <div class="stat-label">Per Day (Today)</div>
+            <div class="stat-value" id="calendarPerDayRevenue">$0.00</div>
+        </div>
+        <div class="student-card">
+            <div class="stat-label">% of Projected</div>
+            <div class="stat-value" id="calendarRevenuePercent">0%</div>
+        </div>
+    </div>
+    <p style="font-size: 12px; color: #999; text-align: center; margin-bottom: 16px;">Click lesson to mark: <strong style="color:#1976d2">Blue</strong> = Pending · <strong style="color:#388e3c">Green</strong> = Attended · <strong style="color:#c62828">Red</strong> = Cancelled</p>
+    <div id="calendarGrid"></div>
+</div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCcU_6u-zNERCr5PTkau8O1TeoJcZNdo0E",
-            authDomain: "tuition-scheduler-672d3.firebaseapp.com",
-            projectId: "tuition-scheduler-672d3",
-            storageBucket: "tuition-scheduler-672d3.firebasestorage.app",
-            messagingSenderId: "190294013358",
-            appId: "1:190294013308:web:1c962d251c8bf3a82d843f"
-        };
+<div id="analytics" class="tab-content">
+    <h2>Revenue Analytics</h2>
+    <div id="analyticsList"></div>
+</div>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+<div id="settings" class="tab-content">
+    <h2>Account</h2>
+    <div class="user-profile">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-info">
+            <div class="user-name" id="userDisplayName">—</div>
+            <div class="user-email-text" id="userEmailText">—</div>
+        </div>
+        <button class="secondary" onclick="window.signOutUser()">Sign Out</button>
+    </div>
+</div>
 
-        // In-memory state — no localStorage
-        let currentUser = null;
-        let students = [];
-        let attendanceRecords = {};
-        let unsubStudents = null;
-        let unsubAttendance = null;
-        let currentWeekStart = getMonday(new Date());
-        let editingStudentId = null;
+</div>
 
-        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        const TIMES = [
-            '08:00','08:15','08:30','08:45',
-            '09:00','09:15','09:30','09:45',
-            '10:00','10:15','10:30','10:45',
-            '11:00','11:15','11:30','11:45',
-            '12:00','12:15','12:30','12:45',
-            '13:00','13:15','13:30','13:45',
-            '14:00','14:15','14:30','14:45',
-            '15:00','15:15','15:30','15:45',
-            '16:00','16:15','16:30','16:45',
-            '17:00','17:15','17:30','17:45',
-            '18:00','18:15','18:30','18:45',
-            '19:00','19:15','19:30','19:45',
-            '20:00','20:15','20:30','20:45',
-            '21:00'
-        ];
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-        // --- Auth ---
-        window.signInWithGoogle = async () => {
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (e) {
-                alert('Sign-in failed: ' + e.message);
-            }
-        };
+<script>
+console.log('Script starting...');
 
-        window.signOutUser = async () => {
-            if (!confirm('Sign out?')) return;
-            if (unsubStudents) { unsubStudents(); unsubStudents = null; }
-            if (unsubAttendance) { unsubAttendance(); unsubAttendance = null; }
-            students = [];
-            attendanceRecords = {};
-            await signOut(auth);
-        };
+// FIREBASE CONFIG
+const firebaseConfig = {
+    apiKey: "AIzaSyCcU_6u-zNERCr5PTkau8O1TeoJcZNdo0E",
+    authDomain: "tuition-scheduler-672d3.firebaseapp.com",
+    projectId: "tuition-scheduler-672d3",
+    storageBucket: "tuition-scheduler-672d3.firebasestorage.app",
+    messagingSenderId: "190294013358",
+    appId: "1:190294013308:web:1c962d251c8bf3a82d843f"
+};
 
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'block';
+try {
+    firebase.initializeApp(firebaseConfig);
+    console.log('Firebase initialized');
+} catch(e) {
+    console.error('Firebase error:', e);
+}
 
-                // Set user profile in settings
-                document.getElementById('userDisplayName').textContent = user.displayName || user.email;
-                document.getElementById('userEmailText').textContent = user.email;
-                const initial = (user.displayName || user.email || '?')[0].toUpperCase();
-                document.getElementById('avatarInitial').textContent = initial;
-                if (user.photoURL) {
-                    const img = document.getElementById('userPhoto');
-                    img.src = user.photoURL;
-                    img.style.display = 'block';
-                    document.getElementById('avatarInitial').style.display = 'none';
-                }
+const auth = firebase.auth();
+const db = firebase.firestore();
+const provider = new firebase.auth.GoogleAuthProvider();
 
-                setupListeners(user.uid);
-                renderScheduleSelector();
-                renderCalendar();
-            } else {
-                currentUser = null;
-                students = [];
-                attendanceRecords = {};
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('appContainer').style.display = 'none';
-            }
+// STATE
+let currentUser = null;
+let students = [];
+let attendanceRecords = {};
+let currentWeekStart = getMonday(new Date());
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const TIMES = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
+
+// FUNCTIONS
+function getMonday(d) {
+    d = new Date(d);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+}
+
+window.signInWithGoogle = function() {
+    console.log('Signing in...');
+    auth.signInWithPopup(provider).catch(e => {
+        console.error('Auth error:', e);
+        alert('Error: ' + e.message);
+    });
+};
+
+window.signOutUser = function() {
+    if (confirm('Sign out?')) {
+        auth.signOut();
+    }
+};
+
+auth.onAuthStateChanged(user => {
+    console.log('Auth state changed:', user ? user.email : 'none');
+    if (user) {
+        currentUser = user;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        document.getElementById('userDisplayName').textContent = user.displayName || user.email;
+        document.getElementById('userEmailText').textContent = user.email;
+        const initial = (user.displayName || user.email || '?')[0].toUpperCase();
+        document.getElementById('userAvatar').textContent = initial;
+        setupListeners();
+        renderScheduleSelector();
+        renderCalendar();
+    } else {
+        currentUser = null;
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+    }
+});
+
+function setupListeners() {
+    db.collection('users').doc(currentUser.uid).collection('students').onSnapshot(snap => {
+        students = snap.docs.map(d => d.data());
+        renderStudents();
+        renderCalendar();
+    });
+
+    db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').onSnapshot(snap => {
+        attendanceRecords = snap.exists ? (snap.data().records || {}) : {};
+        renderCalendar();
+    });
+}
+
+function renderScheduleSelector() {
+    let html = '<div style="display:grid;gap:12px;">';
+    DAYS.forEach((day, i) => {
+        html += `<div style="padding:12px;background:#f9f9f9;border-radius:6px;">
+            <label style="margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" id="day_${i}" onchange="toggleDay(${i})">
+                <span>${day}</span>
+            </label>
+            <div id="times_${i}" style="display:none;margin-top:8px;">
+                <select id="time_${i}">
+                    ${TIMES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                </select>
+            </div>
+        </div>`;
+    });
+    document.getElementById('scheduleSelector').innerHTML = html + '</div>';
+}
+
+window.toggleDay = function(i) {
+    const cb = document.getElementById(`day_${i}`);
+    document.getElementById(`times_${i}`).style.display = cb.checked ? 'block' : 'none';
+};
+
+window.addStudent = async function() {
+    const name = document.getElementById('studentName').value.trim();
+    const subject = document.getElementById('subject').value.trim();
+    const rate = parseFloat(document.getElementById('hourlyRate').value);
+    const duration = parseFloat(document.getElementById('duration').value);
+
+    if (!name || !subject || !rate || !duration) {
+        alert('Fill all fields');
+        return;
+    }
+
+    const schedule = [];
+    DAYS.forEach((day, i) => {
+        if (document.getElementById(`day_${i}`).checked) {
+            schedule.push({
+                day: i,
+                dayName: day,
+                time: document.getElementById(`time_${i}`).value
+            });
+        }
+    });
+
+    if (schedule.length === 0) {
+        alert('Select at least one day');
+        return;
+    }
+
+    const student = {
+        id: Date.now(),
+        studentName: name,
+        subject,
+        hourlyRate: rate,
+        duration,
+        schedule,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(student.id)).set(student);
+        document.getElementById('studentName').value = '';
+        document.getElementById('subject').value = '';
+        alert('Student added!');
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+};
+
+function renderStudents() {
+    const html = students.map(s => {
+        const total = (s.schedule.length * s.duration * s.hourlyRate).toFixed(2);
+        return `<div class="student-card">
+            <div style="font-size:18px;font-weight:600;color:#1976d2;margin-bottom:12px;">${s.studentName}</div>
+            <div style="font-size:12px;color:#666;margin-bottom:8px;">📖 ${s.subject}</div>
+            <div class="lesson-slots">
+                ${s.schedule.map(slot => `<div class="lesson-slot">
+                    <div class="lesson-slot-day">${slot.dayName}</div>
+                    <div class="lesson-slot-time">${slot.time}</div>
+                </div>`).join('')}
+            </div>
+            <div class="stat-card" style="margin-top:12px;">
+                <div class="stat-label">Per Week</div>
+                <div class="stat-value">$${total}</div>
+            </div>
+            <button class="secondary" onclick="window.deleteStudent(${s.id})" style="margin-top:12px;width:100%;">Delete</button>
+        </div>`;
+    }).join('');
+    document.getElementById('studentsList').innerHTML = html || '<div class="empty-state">No students yet</div>';
+}
+
+window.deleteStudent = async function(id) {
+    if (!confirm('Delete?')) return;
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(id)).delete();
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+};
+
+function renderCalendar() {
+    updateCalendarRevenueSummary();
+
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    document.getElementById('weekDisplay').textContent = `${currentWeekStart.toLocaleDateString()} – ${weekEnd.toLocaleDateString()}`;
+
+    const weekStartKey = currentWeekStart.toISOString().split('T')[0];
+    const START_HOUR = 8;
+    const END_HOUR = 21;
+    const HOUR_PX = 60;
+    const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+    const weekLessons = Array(7).fill(null).map(() => []);
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            weekLessons[slot.day].push({
+                studentId: s.id,
+                studentName: s.studentName,
+                time: slot.time,
+                duration: s.duration,
+                revenue: (s.duration * s.hourlyRate).toFixed(2)
+            });
+        });
+    });
+
+    let labelsHtml = '<div class="tg-label-header"></div>';
+    for (let h = START_HOUR; h <= END_HOUR; h++) {
+        labelsHtml += `<div class="tg-label">${String(h).padStart(2,'0')}:00</div>`;
+    }
+
+    const jsDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let daysHtml = '';
+
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(currentWeekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        const isToday = dayDate.toDateString() === new Date().toDateString();
+        const dayLessons = weekLessons[i];
+
+        let linesHtml = '';
+        for (let h = 0; h <= TOTAL_HOURS; h++) {
+            linesHtml += `<div class="tg-hour-line" style="top:${h * HOUR_PX}px"></div>`;
+        }
+
+        let lessonsHtml = '';
+        dayLessons.forEach(lesson => {
+            const [lh, lm] = lesson.time.split(':').map(Number);
+            const topPx = ((lh - START_HOUR) + lm / 60) * HOUR_PX;
+            const heightPx = Math.max(lesson.duration * HOUR_PX, 22);
+            const key = `${lesson.studentId}_${weekStartKey}_${i}`;
+            const status = attendanceRecords[key];
+            const cls = status === 'attended' ? 'attended' : status === 'cancelled' ? 'cancelled' : '';
+            const icon = status === 'attended' ? ' ✓' : status === 'cancelled' ? ' ✗' : '';
+            lessonsHtml += `<div class="tg-lesson ${cls}" style="top:${topPx}px;height:${heightPx}px;" onclick="window.toggleAttendance(${lesson.studentId},'${weekStartKey}',${i})">
+                <div class="tg-lesson-time">${lesson.time}${icon}</div>
+                <div>${lesson.studentName}</div>
+            </div>`;
         });
 
-        function setupListeners(uid) {
-            if (unsubStudents) unsubStudents();
-            if (unsubAttendance) unsubAttendance();
+        daysHtml += `<div class="tg-day ${isToday ? 'tg-today' : ''}">
+            <div class="tg-day-header">
+                <span class="tg-day-num">${dayDate.getDate()}</span>
+                <span class="tg-day-name">${jsDayNames[dayDate.getDay()]}</span>
+            </div>
+            <div class="tg-day-body" style="height:${TOTAL_HOURS * HOUR_PX}px;">
+                ${linesHtml}${lessonsHtml}
+            </div>
+        </div>`;
+    }
 
-            unsubStudents = onSnapshot(collection(db, 'users', uid, 'students'), snapshot => {
-                students = snapshot.docs.map(d => d.data());
-                students.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-                renderStudents();
-                renderCalendar();
-                if (document.getElementById('analytics').classList.contains('active')) renderAnalytics();
-                if (document.getElementById('revenue').classList.contains('active')) renderRevenue();
-            });
+    document.getElementById('calendarGrid').innerHTML = `
+        <div class="tg-scroll">
+            <div class="tg-wrap">
+                <div class="tg-labels">${labelsHtml}</div>
+                <div class="tg-days">${daysHtml}</div>
+            </div>
+        </div>`;
+}
 
-            unsubAttendance = onSnapshot(doc(db, 'users', uid, 'attendance', 'records'), snapshot => {
-                attendanceRecords = snapshot.exists() ? (snapshot.data().records || {}) : {};
-                renderCalendar();
-                if (document.getElementById('analytics').classList.contains('active')) renderAnalytics();
-            });
-        }
+function updateCalendarRevenueSummary() {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
 
-        // --- Firestore helpers ---
-        async function fsSetStudent(student) {
-            await setDoc(doc(db, 'users', currentUser.uid, 'students', String(student.id)), student);
-        }
-        async function fsDeleteStudent(studentId) {
-            await deleteDoc(doc(db, 'users', currentUser.uid, 'students', String(studentId)));
-        }
-        async function fsSaveAttendance(records) {
-            await setDoc(doc(db, 'users', currentUser.uid, 'attendance', 'records'), { records });
-        }
+    let projectedRevenue = 0;
+    students.forEach(s => {
+        s.schedule.forEach(slot => {
+            projectedRevenue += s.duration * s.hourlyRate;
+        });
+    });
 
-        function showLoading(on) {
-            document.getElementById('loadingBar').style.display = on ? 'block' : 'none';
-        }
-
-        // --- Attendance ---
-        function attKey(studentId, weekStartStr, dayIndex) {
-            return `${studentId}_${weekStartStr}_${dayIndex}`;
-        }
-
-        window.toggleAttendance = async (studentId, weekStartStr, dayIndex) => {
-            const key = attKey(studentId, weekStartStr, dayIndex);
-            const current = attendanceRecords[key];
-            const updated = { ...attendanceRecords };
-            if (!current) {
-                updated[key] = 'attended';
-            } else if (current === 'attended') {
-                updated[key] = 'cancelled';
-            } else {
-                delete updated[key];
-            }
-            showLoading(true);
-            await fsSaveAttendance(updated);
-            showLoading(false);
-        };
-
-        // --- Schedule selector ---
-        window.updateTimeSelector = (dayIndex) => {
-            const cb = document.getElementById(`day_${dayIndex}`);
-            document.getElementById(`times_${dayIndex}`).style.display = cb.checked ? 'block' : 'none';
-        };
-
-        function renderScheduleSelector() {
-            let html = '<div style="display:grid;gap:12px;">';
-            DAYS.forEach((day, i) => {
-                html += `
-                    <div style="padding:12px;background:#f9f9f9;border-radius:6px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <input type="checkbox" id="day_${i}" class="schedule-checkbox" onchange="updateTimeSelector(${i})">
-                            <label for="day_${i}" style="margin:0;font-weight:500;cursor:pointer;">${day}</label>
-                        </div>
-                        <div id="times_${i}" style="display:none;">
-                            <select id="time_${i}" style="width:100%;">
-                                ${TIMES.map(t => `<option value="${t}">${t}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>`;
-            });
-            html += '</div>';
-            document.getElementById('scheduleSelector').innerHTML = html;
-        }
-
-        function getSelectedSchedule() {
-            return DAYS.reduce((acc, day, i) => {
-                const cb = document.getElementById(`day_${i}`);
-                if (cb && cb.checked) {
-                    acc.push({ day: i, dayName: day, time: document.getElementById(`time_${i}`).value });
+    let revenueToDate = 0;
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        if (status === 'attended') {
+            const [sid, dateStr, dayIdx] = key.split('_');
+            const recordDate = new Date(dateStr);
+            if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+                const student = students.find(s => s.id === parseInt(sid));
+                if (student) {
+                    const schedule = student.schedule.find(sch => sch.day === parseInt(dayIdx));
+                    if (schedule) {
+                        revenueToDate += student.duration * student.hourlyRate;
+                    }
                 }
-                return acc;
-            }, []);
-        }
-
-        // --- Students ---
-        window.addStudent = async () => {
-            const name = document.getElementById('studentName').value.trim();
-            const subject = document.getElementById('subject').value.trim();
-            const hourlyRate = parseFloat(document.getElementById('hourlyRate').value);
-            const duration = parseFloat(document.getElementById('duration').value);
-            const notes = document.getElementById('notes').value.trim();
-            const schedule = getSelectedSchedule();
-
-            if (!name || !subject || !hourlyRate || !duration || schedule.length === 0) {
-                alert('Please fill all fields and select at least one day');
-                return;
             }
-
-            const student = { id: Date.now(), studentName: name, subject, hourlyRate, duration, notes, schedule, createdAt: new Date().toISOString() };
-            showLoading(true);
-            await fsSetStudent(student);
-            showLoading(false);
-
-            document.getElementById('studentName').value = '';
-            document.getElementById('subject').value = '';
-            document.getElementById('notes').value = '';
-            document.getElementById('duration').value = '1';
-            document.getElementById('hourlyRate').value = '50';
-            document.querySelectorAll('.schedule-checkbox').forEach(cb => {
-                cb.checked = false;
-                document.getElementById(`times_${cb.id.split('_')[1]}`).style.display = 'none';
-            });
-            showSuccess('Student added!');
-        };
-
-        window.editStudent = (studentId) => {
-            const student = students.find(s => s.id === studentId);
-            if (!student) return;
-            editingStudentId = studentId;
-
-            let html = `
-                <div class="form-group"><label>Student Name</label><input type="text" id="editStudentName" value="${student.studentName}"></div>
-                <div class="grid-2">
-                    <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="editHourlyRate" value="${student.hourlyRate}" min="0" step="5"></div>
-                    <div class="form-group"><label>Duration (hours)</label><input type="number" id="editDuration" value="${student.duration}" min="0.5" step="0.5"></div>
-                </div>
-                <div class="form-group"><label>Subject</label><input type="text" id="editSubject" value="${student.subject}"></div>
-                <div class="form-group"><label>Notes</label><textarea id="editNotes" rows="2">${student.notes}</textarea></div>
-                <h3 style="margin-top:20px;margin-bottom:12px;">Weekly Schedule</h3>
-                <div style="display:grid;gap:12px;">`;
-
-            DAYS.forEach((day, i) => {
-                const sel = student.schedule.some(s => s.day === i);
-                const selTime = sel ? student.schedule.find(s => s.day === i).time : '14:00';
-                html += `
-                    <div style="padding:12px;background:#f9f9f9;border-radius:6px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <input type="checkbox" id="edit_day_${i}" ${sel ? 'checked' : ''} onchange="updateEditTimeSelector(${i})">
-                            <label for="edit_day_${i}" style="margin:0;font-weight:500;cursor:pointer;">${day}</label>
-                        </div>
-                        <div id="edit_times_${i}" style="display:${sel ? 'block' : 'none'};">
-                            <select id="edit_time_${i}">
-                                ${TIMES.map(t => `<option value="${t}"${t === selTime ? ' selected' : ''}>${t}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>`;
-            });
-
-            html += `</div>
-                <div style="display:flex;gap:8px;margin-top:20px;">
-                    <button onclick="saveEditStudent()" style="flex:1;">Save Changes</button>
-                    <button onclick="closeModal('editModal')" class="secondary" style="flex:1;">Cancel</button>
-                </div>`;
-
-            document.getElementById('editContent').innerHTML = html;
-            document.getElementById('editModal').classList.add('active');
-        };
-
-        window.updateEditTimeSelector = (i) => {
-            const cb = document.getElementById(`edit_day_${i}`);
-            document.getElementById(`edit_times_${i}`).style.display = cb.checked ? 'block' : 'none';
-        };
-
-        window.saveEditStudent = async () => {
-            const student = students.find(s => s.id === editingStudentId);
-            if (!student) return;
-            const updated = {
-                ...student,
-                studentName: document.getElementById('editStudentName').value.trim(),
-                subject: document.getElementById('editSubject').value.trim(),
-                hourlyRate: parseFloat(document.getElementById('editHourlyRate').value),
-                duration: parseFloat(document.getElementById('editDuration').value),
-                notes: document.getElementById('editNotes').value.trim(),
-                schedule: DAYS.reduce((acc, day, i) => {
-                    const cb = document.getElementById(`edit_day_${i}`);
-                    if (cb && cb.checked) acc.push({ day: i, dayName: day, time: document.getElementById(`edit_time_${i}`).value });
-                    return acc;
-                }, [])
-            };
-            showLoading(true);
-            await fsSetStudent(updated);
-            showLoading(false);
-            closeModal('editModal');
-            showSuccess('Student updated!');
-        };
-
-        window.deleteStudent = async (studentId) => {
-            if (!confirm('Delete this student?')) return;
-            showLoading(true);
-            await fsDeleteStudent(studentId);
-            showLoading(false);
-        };
-
-        function renderStudents() {
-            const container = document.getElementById('studentsList');
-            if (students.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No students yet. Add one above!</p></div>';
-                return;
-            }
-            container.innerHTML = students.map(s => {
-                const wk = +(s.schedule.length * s.duration * s.hourlyRate).toFixed(2);
-                const mo = +(wk * 4.33).toFixed(2);
-                return `
-                    <div class="student-card">
-                        <div class="student-header">
-                            <div>
-                                <div class="student-name">${s.studentName}</div>
-                                <div style="font-size:13px;color:#666;margin-top:4px;">📖 ${s.subject}</div>
-                            </div>
-                            <div class="student-actions">
-                                <button onclick="editStudent(${s.id})">Edit</button>
-                                <button class="secondary" onclick="deleteStudent(${s.id})">Delete</button>
-                            </div>
-                        </div>
-                        <p style="font-size:12px;color:#999;margin-bottom:8px;">Weekly Schedule:</p>
-                        <div class="lesson-slots">
-                            ${s.schedule.map(slot => `
-                                <div class="lesson-slot">
-                                    <div class="lesson-slot-day">${slot.dayName}</div>
-                                    <div class="lesson-slot-time">${slot.time}</div>
-                                    <div class="lesson-slot-info">${s.duration}h @ $${s.hourlyRate}/hr</div>
-                                </div>`).join('')}
-                        </div>
-                        <div class="revenue-summary">
-                            <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${wk.toFixed(2)}</div></div>
-                            <div class="stat-card"><div class="stat-label">Per Month (avg)</div><div class="stat-value">$${mo.toFixed(2)}</div></div>
-                        </div>
-                        ${s.notes ? `<div style="font-size:12px;color:#666;margin-top:12px;">💬 ${s.notes}</div>` : ''}
-                    </div>`;
-            }).join('');
         }
+    });
 
-        // --- Calendar (time grid) ---
-        function renderCalendar() {
-            const weekEnd = new Date(currentWeekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
-            const fmtOpts = { month: 'short', day: 'numeric', year: 'numeric' };
-            document.getElementById('weekDisplay').textContent =
-                `Week of ${currentWeekStart.toLocaleDateString('en-SG', fmtOpts)} – ${weekEnd.toLocaleDateString('en-SG', fmtOpts)}`;
-
-            const weekStartKey = currentWeekStart.toISOString().split('T')[0];
-            const START_HOUR = 8;
-            const END_HOUR = 21;
-            const HOUR_PX = 60;
-            const TOTAL_HOURS = END_HOUR - START_HOUR;
-            const GRID_HEIGHT = TOTAL_HOURS * HOUR_PX;
-
-            const weekLessons = Array.from({ length: 7 }, () => []);
-            students.forEach(s => {
-                s.schedule.forEach(slot => {
-                    weekLessons[slot.day].push({
-                        studentId: s.id,
-                        studentName: s.studentName,
-                        time: slot.time,
-                        duration: s.duration,
-                        revenue: +(s.duration * s.hourlyRate).toFixed(2)
-                    });
-                });
-            });
-
-            // Time labels column
-            let labelsHtml = '<div class="tg-label-header"></div>';
-            for (let h = START_HOUR; h <= END_HOUR; h++) {
-                labelsHtml += `<div class="tg-label">${String(h).padStart(2,'0')}:00</div>`;
-            }
-
-            // Day columns
-            const jsDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            let daysHtml = '';
-
-            for (let i = 0; i < 7; i++) {
-                const dayDate = new Date(currentWeekStart);
-                dayDate.setDate(dayDate.getDate() + i);
-                const isToday = dayDate.toDateString() === new Date().toDateString();
-                const dayLessons = weekLessons[i];
-
-                // Hour and half-hour grid lines
-                let linesHtml = '';
-                for (let h = 0; h <= TOTAL_HOURS; h++) {
-                    linesHtml += `<div class="tg-hour-line" style="top:${h * HOUR_PX}px"></div>`;
-                }
-                for (let h = 0; h < TOTAL_HOURS; h++) {
-                    linesHtml += `<div class="tg-half-line" style="top:${h * HOUR_PX + HOUR_PX / 2}px"></div>`;
-                }
-
-                // Positioned lesson blocks
-                let lessonsHtml = '';
-                dayLessons.forEach(lesson => {
-                    const [lh, lm] = lesson.time.split(':').map(Number);
-                    const topPx = ((lh - START_HOUR) + lm / 60) * HOUR_PX;
-                    const heightPx = Math.max(lesson.duration * HOUR_PX, 22);
-                    const key = attKey(lesson.studentId, weekStartKey, i);
-                    const status = attendanceRecords[key];
-                    const cls = status === 'attended' ? 'attended' : status === 'cancelled' ? 'cancelled' : '';
-                    const statusIcon = status === 'attended' ? ' ✓' : status === 'cancelled' ? ' ✗' : '';
-                    lessonsHtml += `
-                        <div class="tg-lesson ${cls}"
-                             style="top:${topPx}px;height:${heightPx}px;"
-                             onclick="toggleAttendance(${lesson.studentId},'${weekStartKey}',${i})">
-                            <div class="tg-lesson-time">${lesson.time}${statusIcon}</div>
-                            ${heightPx > 28 ? `<div class="tg-lesson-name">${lesson.studentName}</div>` : ''}
-                            ${heightPx > 42 ? `<div class="tg-lesson-detail">${lesson.duration}h · $${lesson.revenue.toFixed(2)}</div>` : ''}
-                        </div>`;
-                });
-
-                daysHtml += `
-                    <div class="tg-day ${isToday ? 'tg-today' : ''}">
-                        <div class="tg-day-header">
-                            <span class="tg-day-num">${dayDate.getDate()}</span>
-                            <span class="tg-day-name">${jsDayNames[dayDate.getDay()]}</span>
-                        </div>
-                        <div class="tg-day-body" style="height:${GRID_HEIGHT}px;">
-                            ${linesHtml}${lessonsHtml}
-                        </div>
-                    </div>`;
-            }
-
-            document.getElementById('calendarGrid').innerHTML = `
-                <div class="tg-scroll">
-                    <div class="tg-wrap">
-                        <div class="tg-labels">${labelsHtml}</div>
-                        <div class="tg-days">${daysHtml}</div>
-                    </div>
-                </div>`;
+    const todayDayOfWeek = today.getDay();
+    const scheduleDayIndex = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
+    let perDayRevenue = 0;
+    students.forEach(s => {
+        if (s.schedule.find(slot => slot.day === scheduleDayIndex)) {
+            const slot = s.schedule.find(slot => slot.day === scheduleDayIndex);
+            perDayRevenue += s.duration * s.hourlyRate;
         }
+    });
 
-        window.previousWeek = () => {
-            currentWeekStart = new Date(currentWeekStart);
-            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-            renderCalendar();
-        };
-        window.nextWeek = () => {
-            currentWeekStart = new Date(currentWeekStart);
-            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-            renderCalendar();
-        };
+    const revenuePercent = projectedRevenue > 0 ? Math.round((revenueToDate / projectedRevenue) * 100) : 0;
 
-        // --- Analytics ---
-        function renderAnalytics() {
-            const container = document.getElementById('analyticsList');
-            if (students.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><p>No students yet.</p></div>';
-                return;
-            }
-            const counts = {};
-            students.forEach(s => { counts[s.id] = { attended: 0, cancelled: 0 }; });
-            Object.entries(attendanceRecords).forEach(([key, status]) => {
-                const sid = parseInt(key.split('_')[0]);
-                if (counts[sid]) {
-                    if (status === 'attended') counts[sid].attended++;
-                    else if (status === 'cancelled') counts[sid].cancelled++;
-                }
-            });
+    document.getElementById('calendarRevenueToDate').textContent = `$${revenueToDate.toFixed(2)}`;
+    document.getElementById('calendarPerDayRevenue').textContent = `$${perDayRevenue.toFixed(2)}`;
+    document.getElementById('calendarRevenuePercent').textContent = `${revenuePercent}%`;
+}
 
-            container.innerHTML = students.map(s => {
-                const { attended, cancelled } = counts[s.id];
-                const total = attended + cancelled;
-                const rate = total > 0 ? Math.round((attended / total) * 100) : null;
-                const barCls = rate === null ? '' : rate >= 80 ? '' : rate >= 50 ? 'mid' : 'low';
-                return `
-                    <div class="student-card">
-                        <div class="student-header" style="margin-bottom:12px;">
-                            <div>
-                                <div class="student-name">${s.studentName}</div>
-                                <div style="font-size:13px;color:#666;">📖 ${s.subject} · ${s.schedule.length} session${s.schedule.length !== 1 ? 's' : ''}/week</div>
-                            </div>
-                        </div>
-                        <div class="analytics-grid">
-                            <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${attended}</div></div>
-                            <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${cancelled}</div></div>
-                            <div class="stat-card"><div class="stat-label">Total Recorded</div><div class="stat-value" style="color:#555;">${total}</div></div>
-                        </div>
-                        <div style="margin-top:8px;">
-                            <div style="display:flex;justify-content:space-between;font-size:13px;color:#555;margin-bottom:4px;">
-                                <span>${rate !== null ? `${rate}% attendance rate` : 'No sessions recorded yet'}</span>
-                                ${rate !== null ? `<span>${attended}/${total}</span>` : ''}
-                            </div>
-                            <div class="attendance-bar-wrap">
-                                <div class="attendance-bar ${barCls}" style="width:${rate !== null ? rate : 0}%"></div>
-                            </div>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
+window.toggleAttendance = async function(studentId, weekStartStr, dayIndex) {
+    const key = `${studentId}_${weekStartStr}_${dayIndex}`;
+    const current = attendanceRecords[key];
+    const updated = { ...attendanceRecords };
+    
+    if (!current) {
+        updated[key] = 'attended';
+    } else if (current === 'attended') {
+        updated[key] = 'cancelled';
+    } else {
+        delete updated[key];
+    }
 
-        // --- Revenue ---
-        function renderRevenue() {
-            let html = '';
-            let totalWk = 0, totalMo = 0;
-            students.forEach(s => {
-                const wk = +(s.schedule.length * s.duration * s.hourlyRate).toFixed(2);
-                totalWk += wk;
-                totalMo += +(wk * 4.33).toFixed(2);
-            });
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('attendance').doc('records').set({ records: updated });
+    } catch(e) {
+        console.error(e);
+    }
+};
 
-            html += `
-                <div class="student-card">
-                    <h3 style="margin-bottom:16px;">Total Revenue</h3>
-                    <div class="revenue-summary">
-                        <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${totalWk.toFixed(2)}</div></div>
-                        <div class="stat-card"><div class="stat-label">Per Month (avg)</div><div class="stat-value">$${totalMo.toFixed(2)}</div></div>
-                    </div>
-                </div>`;
+window.previousWeek = function() {
+    currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+    renderCalendar();
+};
 
-            if (students.length > 0) {
-                html += '<h3 style="margin-top:24px;margin-bottom:12px;">By Student</h3>';
-                students.forEach(s => {
-                    const wk = +(s.schedule.length * s.duration * s.hourlyRate).toFixed(2);
-                    const mo = +(wk * 4.33).toFixed(2);
-                    html += `
-                        <div class="student-card">
-                            <div class="student-name">${s.studentName}</div>
-                            <div style="font-size:13px;color:#666;margin-bottom:12px;">📖 ${s.subject}</div>
-                            <div class="revenue-summary">
-                                <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${wk.toFixed(2)}</div></div>
-                                <div class="stat-card"><div class="stat-label">Per Month</div><div class="stat-value">$${mo.toFixed(2)}</div></div>
-                            </div>
-                        </div>`;
-                });
-            } else {
-                html += '<div class="empty-state"><div class="empty-state-icon">📊</div><p>No students yet.</p></div>';
-            }
-            document.getElementById('revenueList').innerHTML = html;
-        }
+window.nextWeek = function() {
+    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    renderCalendar();
+};
 
-        // --- Tab switching ---
-        window.switchTab = (tab, event) => {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tab).classList.add('active');
-            if (event && event.target) event.target.classList.add('active');
-            if (tab === 'revenue') renderRevenue();
-            if (tab === 'calendar') renderCalendar();
-            if (tab === 'analytics') renderAnalytics();
-        };
+window.switchTab = function(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.classList.add('active');
+    if (tab === 'calendar') renderCalendar();
+};
 
-        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+console.log('Script loaded successfully');
+</script>
 
-        function showSuccess(msg) {
-            const el = document.getElementById('successMsg');
-            el.textContent = msg;
-            el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 3000);
-        }
-
-        function getMonday(d) {
-            d = new Date(d);
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-            return new Date(d.setDate(diff));
-        }
-
-        // --- Export / Import ---
-        window.exportToExcel = () => {
-            if (students.length === 0) { alert('No students to export.'); return; }
-            const rows = [['Student Name', 'Subject', 'Date', 'Day', 'Hours', 'Rate ($/hr)', 'Cost per Session ($)']];
-            students.forEach(s => {
-                s.schedule.forEach(slot => {
-                    const d = new Date(currentWeekStart);
-                    d.setDate(d.getDate() + slot.day);
-                    rows.push([
-                        s.studentName, s.subject,
-                        d.toLocaleDateString('en-SG', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                        slot.dayName, s.duration, s.hourlyRate,
-                        parseFloat((s.duration * s.hourlyRate).toFixed(2))
-                    ]);
-                });
-            });
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 }];
-            XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
-            XLSX.writeFile(wb, `tuition_${currentWeekStart.toISOString().split('T')[0]}.xlsx`);
-        };
-
-        window.exportData = () => {
-            const data = { students, attendance: attendanceRecords, exportedAt: new Date().toISOString() };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `tuition_backup_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        };
-
-        window.importData = async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (!data.students) { alert('Invalid format'); return; }
-                    if (!confirm(`Import ${data.students.length} students? This will add to your existing data.`)) return;
-                    showLoading(true);
-                    for (const s of data.students) await fsSetStudent(s);
-                    if (data.attendance) await fsSaveAttendance({ ...attendanceRecords, ...data.attendance });
-                    showLoading(false);
-                    alert('Imported successfully!');
-                } catch (err) {
-                    showLoading(false);
-                    alert('Error: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
-        };
-
-        window.clearAllData = async () => {
-            if (!confirm('⚠️ Delete ALL your data from all devices?')) return;
-            if (!confirm('Really? This cannot be undone.')) return;
-            showLoading(true);
-            for (const s of students) await fsDeleteStudent(s.id);
-            await fsSaveAttendance({});
-            showLoading(false);
-        };
-    </script>
 </body>
 </html>
