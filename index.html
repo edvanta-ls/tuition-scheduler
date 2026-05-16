@@ -270,7 +270,7 @@ label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:4px}
       <div class="analytics-grid" id="analytics-summary"></div>
     </div>
     <div class="card" id="revenue-chart-card">
-      <h2>Monthly Revenue (last 6 months)</h2>
+      <h2>Monthly Revenue (from May 2026)</h2>
       <div id="revenue-chart"></div>
     </div>
     <div id="analytics-students"></div>
@@ -763,9 +763,12 @@ function renderCalendar(){
 }
 
 // ── Analytics ─────────────────────────────────────────────────
+const ANALYTICS_MIN=new Date(2026,4,1); // May 2026 floor
 function analyticsMonthPrev(){
   const m=analyticsMonth.getMonth(),y=analyticsMonth.getFullYear();
-  analyticsMonth=m===0?new Date(y-1,11,1):new Date(y,m-1,1);
+  const prev=m===0?new Date(y-1,11,1):new Date(y,m-1,1);
+  if(prev<ANALYTICS_MIN)return;
+  analyticsMonth=prev;
   renderAnalytics();
 }
 function analyticsMonthNext(){
@@ -881,17 +884,17 @@ function renderAnalytics(){
     <div class="stat-card"><div class="stat-val">${attRate}%</div><div class="stat-lbl">Attendance Rate</div></div>
     <div class="stat-card"><div class="stat-val">$${totalRevenue.toFixed(0)}</div><div class="stat-lbl">Revenue This Month</div></div>
     <div class="stat-card"><div class="stat-val">$${ytdRev.toFixed(0)}</div><div class="stat-lbl">YTD Revenue (${y})</div></div>`;
-  // Revenue bar chart (last 6 months)
+  // Revenue bar chart from May 2026 up to current analytics month (max 12)
   const months=[];
-  for(let i=5;i>=0;i--){
-    const d=new Date(y,m-i,1);
+  for(let d=new Date(ANALYTICS_MIN);d<=analyticsMonth;d.setMonth(d.getMonth()+1)){
     let rev=0;students.forEach(s=>{rev+=calcMonthRevenueProper(s.id,d.getFullYear(),d.getMonth());});
-    months.push({label:d.toLocaleDateString('en-GB',{month:'short'}),rev});
+    months.push({label:d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}),rev});
   }
-  const maxRev=Math.max(...months.map(x=>x.rev),1);
+  const visMonths=months.slice(-12);
+  const maxRev=Math.max(...visMonths.map(x=>x.rev),1);
   document.getElementById('revenue-chart').innerHTML=`
     <div class="bar-chart">
-      ${months.map((mo,i)=>`
+      ${visMonths.map((mo,i)=>`
         <div class="bar-col" style="position:relative">
           <span class="bar-val">$${mo.rev.toFixed(0)}</span>
           <div class="bar-inner" style="height:${Math.round(mo.rev/maxRev*100)}%"></div>
