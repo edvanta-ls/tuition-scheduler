@@ -157,22 +157,33 @@ label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:4px}
   .cal-lesson{font-size:9px}
   .payment-row{flex-direction:column;align-items:flex-start}
 }
-/* Week time-grid */
-.week-tgrid{display:flex;overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px;background:#fff}
-.week-tgrid-times{min-width:42px;padding-top:49px;border-right:1px solid #e0e0e0;flex-shrink:0}
-.week-tgrid-hour-label{font-size:10px;color:#aaa;text-align:right;padding-right:5px;box-sizing:border-box}
-.week-tgrid-days{display:flex;flex:1;min-width:0}
-.week-tgrid-daycol{flex:1;min-width:72px;border-right:1px solid #f0f0f0;position:relative}
-.week-tgrid-daycol:last-child{border-right:none}
-.week-tgrid-dayhead{text-align:center;font-size:12px;font-weight:600;color:#555;padding:8px 4px;border-bottom:1px solid #e0e0e0;height:49px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:sticky;top:0;background:#fff;z-index:2}
-.week-tgrid-dayhead.today-head{color:#4a4a8a;background:#f0f0ff}
-.week-tgrid-body{position:relative}
-.week-tgrid-hrline{position:absolute;left:0;right:0;border-top:1px solid #f0f0f0}
-.week-tgrid-hrline.full-hr{border-top-color:#e0e0e0}
-.week-lesson-card{position:absolute;border-radius:4px;padding:2px 4px;font-size:11px;overflow:hidden;cursor:pointer;border-left:3px solid;line-height:1.3}
-.week-lesson-card.status-attended{opacity:1}
-.week-lesson-card.status-cancelled{opacity:0.45;text-decoration:line-through}
-.week-lesson-card.status-pending{opacity:0.75}
+/* Week time-grid (original tg style) */
+.tg-scroll{overflow-x:auto;overflow-y:auto;max-height:80vh;border:1px solid #e0e0e0;border-radius:8px;background:#fff}
+.tg-wrap{display:flex;min-width:600px}
+.tg-labels{width:50px;flex-shrink:0;border-right:1px solid #e0e0e0;position:sticky;left:0;background:#fff;z-index:3}
+.tg-label-header{height:48px;border-bottom:1px solid #e0e0e0}
+.tg-label{height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:3px 6px 0 0;font-size:10px;color:#bbb;border-bottom:1px solid #f0f0f0}
+.tg-days{display:flex;flex:1}
+.tg-day{flex:1;min-width:80px;border-right:1px solid #e0e0e0}
+.tg-day:last-child{border-right:none}
+.tg-day-header{height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f5f5f5;border-bottom:1px solid #e0e0e0;position:sticky;top:0;z-index:2;position:relative}
+.tg-day.tg-today .tg-day-header{background:#e8eaf6}
+.tg-day.tg-today .tg-day-num{color:#4a4a8a;font-weight:700}
+.tg-day-num{font-size:16px;font-weight:600;color:#333;line-height:1}
+.tg-day-name{font-size:10px;color:#999;margin-top:2px}
+.tg-day-body{position:relative}
+.tg-hour-line{position:absolute;left:0;right:0;border-top:1px solid #ebebeb;pointer-events:none}
+.tg-lesson{position:absolute;left:2px;right:2px;background:linear-gradient(135deg,#4a4a8a,#3a3a7a);color:#fff;border-radius:4px;padding:3px 5px;font-size:10px;cursor:pointer;overflow:hidden;z-index:1;transition:filter 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.tg-lesson:hover{filter:brightness(1.12)}
+.tg-lesson.attended{background:linear-gradient(135deg,#388e3c,#2e7d32)}
+.tg-lesson.cancelled{background:linear-gradient(135deg,#c62828,#b71c1c);opacity:0.75}
+.tg-lesson.one-off{border:2px dashed rgba(255,255,255,0.55)}
+.tg-lesson-time{font-weight:700;font-size:10px;white-space:nowrap}
+.tg-add-btn{position:absolute;right:4px;top:4px;background:none;border:1px solid #ccc;color:#bbb;border-radius:50%;width:18px;height:18px;font-size:14px;line-height:1;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tg-add-btn:hover{border-color:#4a4a8a;color:#4a4a8a}
+.tg-day-footer{padding:6px 4px;text-align:center;font-size:11px;font-weight:700;color:#4a4a8a;background:#e8e8f5;border-top:2px solid #c8c8e8}
+.tg-day-footer.no-class{color:#bbb;background:#fafafa;border-top:1px solid #ebebeb;font-weight:400}
+.tg-label-footer{height:30px;border-top:2px solid #e0e0e0;background:#f5f5f5;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;font-size:9px;color:#aaa}
 /* Print invoice only */
 @media print{
   body>*{display:none}
@@ -437,6 +448,15 @@ label{display:block;font-size:13px;font-weight:500;color:#555;margin-bottom:4px}
   </div>
 </div>
 
+<!-- Attendance / lesson modal for weekly view -->
+<div class="modal-overlay" id="att-modal">
+  <div class="modal" style="max-width:360px">
+    <button class="close-btn" onclick="closeModal('att-modal')">&#215;</button>
+    <h2>Lesson</h2>
+    <div id="att-modal-body"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- Firebase -->
@@ -528,7 +548,7 @@ async function loadAll(){
         duration:sl.duration||(data.duration?data.duration*60:60)
       }));
     }
-    return{id:d.id,...data};
+    return{...data, id:d.id};   // id must come AFTER spread — old docs stored numeric id inside the document
   });
   attendance={};
   aSnap.docs.forEach(d=>attendance[d.id]=d.data());
@@ -566,6 +586,7 @@ function openAddStudent(){
   document.getElementById('s-name').value='';
   document.getElementById('s-subject').value='';
   document.getElementById('s-rate').value='';
+  document.getElementById('s-startdate').value='';
   document.getElementById('s-status').value='active';
   document.getElementById('s-notes').value='';
   document.getElementById('schedule-slots').innerHTML='';
@@ -842,100 +863,130 @@ function setCalView(v){
 function prevWeekCal(){currentWeekCal=new Date(currentWeekCal);currentWeekCal.setDate(currentWeekCal.getDate()-7);renderWeekView();}
 function nextWeekCal(){currentWeekCal=new Date(currentWeekCal);currentWeekCal.setDate(currentWeekCal.getDate()+7);renderWeekView();}
 function goToThisWeekCal(){currentWeekCal=mondayOfWeek(new Date());renderWeekView();}
-async function weekToggleAttendance(studentId,wk,dayIdx){
-  const key=`${studentId}_${wk}_${dayIdx}`;
-  const rec=attendance[key];
-  let newPresent;
-  if(!rec)newPresent=true;           // pending → attended
-  else if(rec.present)newPresent=false; // attended → cancelled
-  else{                              // cancelled → remove
-    delete attendance[key];
-    await col_ref('attendance').doc(key).delete();
-    renderWeekView();renderAttendance();return;
-  }
-  attendance[key]={present:newPresent,studentId,weekStart:wk,dayIndex:dayIdx};
-  await col_ref('attendance').doc(key).set(attendance[key]);
-  renderWeekView();renderAttendance();
+function calcEndTime(startTime,durationMins){
+  const[h,m]=(startTime||'0:0').split(':').map(Number);
+  const total=h*60+m+durationMins;
+  return`${String(Math.floor(total/60)%24).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 function renderWeekView(){
-  const HOUR_H=56,SLOT_H=28; // px per hour / per 30min
-  const COLORS=['#e8eaf6','#fce4ec','#e8f5e9','#fff9c4','#e0f7fa','#fbe9e7','#f3e5f5'];
-  const DCOLORS=['#283593','#880e4f','#1b5e20','#f57f17','#006064','#bf360c','#4a148c'];
-  const days=[];
-  for(let i=0;i<7;i++){const d=new Date(currentWeekCal);d.setDate(d.getDate()+i);days.push(d);}
-  document.getElementById('week-cal-label').textContent=`${fmt(days[0])} – ${fmt(days[6])}`;
-  const todayStr=toLocalDateKey(new Date());
-  // Collect lessons per day
-  const dayLessons=days.map(d=>{
-    const dk=toLocalDateKey(d);
-    const lessons=[];
-    students.filter(s=>(s.status||'active')==='active').forEach((s,si)=>{
-      (s.schedule||[]).forEach(slot=>{
-        if(d.getDay()!==jsDay(slot.day))return;
-        if(s.startDate&&dk<s.startDate)return;
-        const mon=mondayOfWeek(new Date(d));
-        const wk=weekStartKey(mon);
-        const key=`${s.id}_${wk}_${slot.day}`;
-        const rec=attendance[key];
-        const status=rec?(rec.present?'attended':'cancelled'):'pending';
-        const[h,m]=(slot.time||'0:0').split(':').map(Number);
-        lessons.push({name:s.name,time:slot.time||'',startMins:h*60+m,duration:slot.duration||60,
-          si,status,studentId:s.id,wk,dayIdx:slot.day,
-          bg:COLORS[si%COLORS.length],fg:DCOLORS[si%DCOLORS.length]});
-      });
+  const START_HOUR=8,END_HOUR=24,HOUR_PX=60,TOTAL_HOURS=END_HOUR-START_HOUR;
+  const weekEnd=new Date(currentWeekCal);weekEnd.setDate(weekEnd.getDate()+6);
+  document.getElementById('week-cal-label').textContent=`${currentWeekCal.toLocaleDateString()} – ${weekEnd.toLocaleDateString()}`;
+  const wk=weekStartKey(currentWeekCal);
+  const jsDayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const weekLessons=Array(7).fill(null).map(()=>[]);
+  students.filter(s=>(s.status||'active')==='active').forEach(s=>{
+    (s.schedule||[]).forEach(slot=>{
+      const key=`${s.id}_${wk}_${slot.day}`;
+      const slotDate=new Date(currentWeekCal);slotDate.setDate(slotDate.getDate()+slot.day);
+      if(s.startDate&&toLocalDateKey(slotDate)<s.startDate)return;
+      const rec=attendance[key];
+      const status=rec?(rec.present?'attended':'cancelled'):null;
+      weekLessons[slot.day].push({isOneOff:false,studentId:s.id,origDayIndex:slot.day,
+        studentName:s.name,subject:s.subject||'',time:slot.time||'',duration:slot.duration||60,
+        revenue:((slot.duration||60)/60*(s.rate||defaultRate)).toFixed(2),status});
     });
-    oneOffs.filter(o=>o.date===dk).forEach(o=>{
-      const s=students.find(x=>x.id===o.studentId);
-      const si=s?students.indexOf(s):0;
-      const[h,m]=(o.time||'0:0').split(':').map(Number);
-      lessons.push({name:s?s.name:'?',time:o.time||'',startMins:h*60+m,duration:o.duration||60,
-        si,status:'attended',studentId:null,
-        bg:COLORS[si%COLORS.length],fg:DCOLORS[si%DCOLORS.length]});
-    });
-    // Overlap detection
-    lessons.sort((a,b)=>a.startMins-b.startMins);
-    const colEnds=[];
-    lessons.forEach(l=>{let c=0;while(c<colEnds.length&&colEnds[c]>l.startMins)c++;colEnds[c]=l.startMins+l.duration;l._col=c;});
-    lessons.forEach(l=>{let mx=l._col;lessons.forEach(o=>{if(o===l)return;if(o.startMins<l.startMins+l.duration&&o.startMins+o.duration>l.startMins)mx=Math.max(mx,o._col);});l._tc=mx+1;});
-    return lessons;
   });
-  // Time range
-  let minH=8,maxH=21;
-  dayLessons.forEach(ls=>ls.forEach(l=>{minH=Math.min(minH,Math.floor(l.startMins/60));maxH=Math.max(maxH,Math.ceil((l.startMins+l.duration)/60));}));
-  const gridH=(maxH-minH)*HOUR_H;
-  // Time labels
-  let timeHtml='<div class="week-tgrid-times">';
-  for(let h=minH;h<=maxH;h++)timeHtml+=`<div class="week-tgrid-hour-label" style="height:${HOUR_H}px">${String(h).padStart(2,'0')}:00</div>`;
-  timeHtml+='</div>';
-  // Day columns
-  const daysHtml=days.map((d,di)=>{
-    const dk=toLocalDateKey(d);
-    const isToday=dk===todayStr;
-    let lines='';
-    for(let h=minH;h<=maxH;h++){
-      lines+=`<div class="week-tgrid-hrline${h>minH?' full-hr':''}" style="top:${(h-minH)*HOUR_H}px"></div>`;
-      lines+=`<div class="week-tgrid-hrline" style="top:${(h-minH)*HOUR_H+SLOT_H}px;border-top-color:#f8f8f8"></div>`;
+  oneOffs.forEach(o=>{
+    const oDate=new Date((o.date||'2000-01-01')+'T00:00:00');
+    const diff=Math.round((oDate-currentWeekCal)/86400000);
+    if(diff>=0&&diff<7){
+      const s=students.find(x=>x.id===o.studentId);
+      weekLessons[diff].push({isOneOff:true,oneOffId:o.id,studentId:o.id,
+        studentName:s?s.name:'Unknown',subject:s?s.subject||'':'',
+        time:o.time||'',duration:o.duration||60,
+        revenue:((o.duration||60)/60*((s&&s.rate)||defaultRate)).toFixed(2),status:'attended'});
     }
-    const cards=dayLessons[di].map(l=>{
-      const top=(l.startMins-minH*60)/60*HOUR_H;
-      const height=Math.max(l.duration/60*HOUR_H-3,18);
-      const cw=100/l._tc;
-      const endM=l.startMins+l.duration;
-      const endStr=`${String(Math.floor(endM/60)).padStart(2,'0')}:${String(endM%60).padStart(2,'0')}`;
-      const click=l.studentId?`onclick="weekToggleAttendance('${l.studentId}','${l.wk}',${l.dayIdx})"`:'' ;
-      return `<div class="week-lesson-card status-${l.status}" ${click}
-        style="top:${top}px;left:calc(${l._col*cw}% + 1px);width:calc(${cw}% - 3px);height:${height}px;background:${l.bg};color:${l.fg};border-color:${l.fg}"
-        title="${l.name} ${l.time}–${endStr}">
-        <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.name}</div>
-        ${height>26?`<div>${l.time}–${endStr}</div>`:''}
+  });
+  let labelsHtml='<div class="tg-label-header"></div>';
+  for(let h=START_HOUR;h<=END_HOUR;h++)labelsHtml+=`<div class="tg-label">${h===24?'00':String(h).padStart(2,'0')}:00</div>`;
+  labelsHtml+='<div class="tg-label-footer"></div>';
+  let daysHtml='';
+  for(let i=0;i<7;i++){
+    const dayDate=new Date(currentWeekCal);dayDate.setDate(dayDate.getDate()+i);
+    const isToday=dayDate.toDateString()===new Date().toDateString();
+    const dayLessons=weekLessons[i];
+    let linesHtml='';
+    for(let h=0;h<=TOTAL_HOURS;h++)linesHtml+=`<div class="tg-hour-line" style="top:${h*HOUR_PX}px"></div>`;
+    const enriched=dayLessons.map(lesson=>{
+      const[lh,lm]=(lesson.time||'0:0').split(':').map(Number);
+      const hourOffset=lh===0?24:lh;
+      const startMins=hourOffset*60+lm;
+      const onclick=lesson.isOneOff
+        ?`openOneOffAttModal('${lesson.oneOffId}')`
+        :`openLessonAttModal('${lesson.studentId}','${wk}',${lesson.origDayIndex})`;
+      return{...lesson,startMins,durationMins:lesson.duration,onclick};
+    });
+    enriched.sort((a,b)=>a.startMins-b.startMins);
+    const colEnds=[];
+    enriched.forEach(l=>{let c=0;while(c<colEnds.length&&colEnds[c]>l.startMins)c++;colEnds[c]=l.startMins+l.durationMins;l._col=c;});
+    enriched.forEach(l=>{let mx=l._col;enriched.forEach(o=>{if(o===l)return;if(o.startMins<l.startMins+l.durationMins&&o.startMins+o.durationMins>l.startMins)mx=Math.max(mx,o._col);});l._totalCols=mx+1;});
+    let lessonsHtml='';
+    enriched.forEach(l=>{
+      const topPx=(l.startMins-START_HOUR*60)/60*HOUR_PX;
+      const heightPx=Math.max(l.durationMins/60*HOUR_PX,22);
+      const endTime=calcEndTime(l.time,l.durationMins);
+      const cls=l.status==='attended'?'attended':l.status==='cancelled'?'cancelled':'';
+      const icon=l.status==='attended'?' ✓':l.status==='cancelled'?' ✗':'';
+      const colW=100/l._totalCols;
+      const posStyle=l._totalCols>1?`left:calc(${l._col*colW}% + 1px);width:calc(${colW}% - 2px);right:auto;`:'left:2px;right:2px;';
+      lessonsHtml+=`<div class="tg-lesson ${cls}${l.isOneOff?' one-off':''}" style="top:${topPx}px;height:${heightPx}px;${posStyle}" onclick="${l.onclick}">
+        <div class="tg-lesson-time">${l.time}${heightPx>=44?'–'+endTime:''}${icon}</div>
+        <div style="font-size:10px;opacity:0.92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.studentName}</div>
+        ${heightPx>=44&&l.subject?`<div style="font-size:9px;opacity:0.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.subject}</div>`:''}
       </div>`;
-    }).join('');
-    return `<div class="week-tgrid-daycol">
-      <div class="week-tgrid-dayhead${isToday?' today-head':''}">${DAYS[di]}<span style="font-size:15px">${d.getDate()}</span></div>
-      <div class="week-tgrid-body" style="height:${gridH}px">${lines}${cards}</div>
+    });
+    const dayRevenue=dayLessons.reduce((s,l)=>l.status==='cancelled'?s:s+parseFloat(l.revenue),0);
+    const dayDateKey=toLocalDateKey(dayDate);
+    daysHtml+=`<div class="tg-day ${isToday?'tg-today':''}">
+      <div class="tg-day-header">
+        <span class="tg-day-num">${dayDate.getDate()}</span>
+        <span class="tg-day-name">${jsDayNames[dayDate.getDay()]}</span>
+        <button class="tg-add-btn" onclick="openQuickOneOffFromCal('${dayDateKey}')" title="Add lesson">+</button>
+      </div>
+      <div class="tg-day-body" style="height:${TOTAL_HOURS*HOUR_PX}px">${linesHtml}${lessonsHtml}</div>
+      <div class="tg-day-footer ${dayLessons.length===0?'no-class':''}">${dayLessons.length===0?'—':'$'+dayRevenue.toFixed(2)}</div>
     </div>`;
-  }).join('');
-  document.getElementById('week-time-grid').innerHTML=`<div class="week-tgrid">${timeHtml}<div class="week-tgrid-days">${daysHtml}</div></div>`;
+  }
+  document.getElementById('week-time-grid').innerHTML=`<div class="tg-scroll"><div class="tg-wrap"><div class="tg-labels">${labelsHtml}</div><div class="tg-days">${daysHtml}</div></div></div>`;
+}
+function openQuickOneOffFromCal(dateKey){switchTab('students');document.getElementById('oneoff-date').value=dateKey;}
+function openLessonAttModal(studentId,wk,dayIdx){
+  const s=students.find(x=>x.id===studentId);if(!s)return;
+  const slot=(s.schedule||[]).find(sl=>sl.day===parseInt(dayIdx));if(!slot)return;
+  const key=`${studentId}_${wk}_${dayIdx}`;
+  const rec=attendance[key];
+  const status=rec?(rec.present?'attended':'cancelled'):null;
+  const endTime=calcEndTime(slot.time,slot.duration||60);
+  document.getElementById('att-modal-body').innerHTML=`
+    <p style="font-size:15px;font-weight:600;margin-bottom:4px">${s.name}</p>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">${s.subject||''} &middot; ${slot.time}${endTime?'–'+endTime:''}</p>
+    <p style="font-size:13px;margin-bottom:14px">Current: <strong style="color:${status==='attended'?'#2e7d32':status==='cancelled'?'#c62828':'#888'}">${status||'Not marked'}</strong></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-success" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},true)">Attended</button>
+      <button class="btn btn-danger" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},false)">Cancelled</button>
+      <button class="btn btn-secondary" style="flex:1;min-width:80px" onclick="setLessonStatus('${studentId}','${wk}',${dayIdx},null)">Clear</button>
+    </div>`;
+  openModal('att-modal');
+}
+async function setLessonStatus(studentId,wk,dayIdx,present){
+  const key=`${studentId}_${wk}_${parseInt(dayIdx)}`;
+  if(present===null){delete attendance[key];await col_ref('attendance').doc(key).delete();}
+  else{attendance[key]={present,studentId,weekStart:wk,dayIndex:parseInt(dayIdx)};await col_ref('attendance').doc(key).set(attendance[key]);}
+  closeModal('att-modal');renderWeekView();renderAttendance();
+  toast(present===null?'Cleared':present?'Marked attended':'Marked cancelled');
+}
+function openOneOffAttModal(id){
+  const o=oneOffs.find(x=>x.id===id);if(!o)return;
+  const s=students.find(x=>x.id===o.studentId);
+  document.getElementById('att-modal-body').innerHTML=`
+    <p style="font-size:15px;font-weight:600;margin-bottom:4px">${s?s.name:'Unknown'} <span style="font-size:11px;color:#888">(one-off)</span></p>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">${o.date} &middot; ${o.time} &middot; ${o.duration}min</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-danger btn-sm" style="flex:1" onclick="deleteOneOff('${id}');closeModal('att-modal')">Delete session</button>
+      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="closeModal('att-modal')">Close</button>
+    </div>`;
+  openModal('att-modal');
 }
 
 // ── Analytics ─────────────────────────────────────────────────
