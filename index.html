@@ -290,8 +290,9 @@ const TIMES = (()=>{const t=[];for(let h=8;h<=23;h++){['00','15','30','45'].forE
 function getMonday(d) {
     d = new Date(d);
     const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
+    d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+    d.setHours(0, 0, 0, 0);
+    return d;
 }
 
 window.signInWithGoogle = function() {
