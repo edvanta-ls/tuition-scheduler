@@ -58,6 +58,9 @@
         .tg-lesson.attended { background: linear-gradient(135deg, #388e3c, #2e7d32); }
         .tg-lesson.cancelled { background: linear-gradient(135deg, #c62828, #b71c1c); opacity: 0.75; }
         .tg-lesson-time { font-weight: 700; font-size: 10px; white-space: nowrap; }
+        .tg-day-footer { padding: 6px 4px; text-align: center; font-size: 11px; font-weight: 700; color: #1565c0; background: #e3f2fd; border-top: 2px solid #bbdefb; }
+        .tg-day-footer.no-class { color: #bbb; background: #fafafa; border-top: 1px solid #ebebeb; font-weight: 400; }
+        .tg-label-footer { height: 30px; border-top: 2px solid #e0e0e0; background: #f5f5f5; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-size: 9px; color: #aaa; }
         .login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .login-card { background: white; border-radius: 20px; padding: 48px 40px; text-align: center; max-width: 380px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
         .google-btn { display: flex; align-items: center; justify-content: center; gap: 12px; background: white; color: #333; border: 2px solid #e0e0e0; padding: 14px 24px; border-radius: 10px; font-size: 15px; font-weight: 500; width: 100%; cursor: pointer; transition: box-shadow 0.2s; }
@@ -141,11 +144,11 @@
             <div class="stat-value" id="calendarRevenueToDate">$0.00</div>
         </div>
         <div class="student-card">
-            <div class="stat-label">Per Day (Today)</div>
-            <div class="stat-value" id="calendarPerDayRevenue">$0.00</div>
+            <div class="stat-label">Projected Monthly Revenue</div>
+            <div class="stat-value" id="calendarProjectedMonthly">$0.00</div>
         </div>
         <div class="student-card">
-            <div class="stat-label">% of Projected</div>
+            <div class="stat-label">% of Projected Achieved</div>
             <div class="stat-value" id="calendarRevenuePercent">0%</div>
         </div>
     </div>
@@ -395,6 +398,7 @@ function renderCalendar() {
     for (let h = START_HOUR; h <= END_HOUR; h++) {
         labelsHtml += `<div class="tg-label">${String(h).padStart(2,'0')}:00</div>`;
     }
+    labelsHtml += '<div class="tg-label-footer">Total</div>';
 
     const jsDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     let daysHtml = '';
@@ -425,6 +429,7 @@ function renderCalendar() {
             </div>`;
         });
 
+        const dayRevenue = dayLessons.reduce((sum, l) => sum + parseFloat(l.revenue), 0);
         daysHtml += `<div class="tg-day ${isToday ? 'tg-today' : ''}">
             <div class="tg-day-header">
                 <span class="tg-day-num">${dayDate.getDate()}</span>
@@ -432,6 +437,9 @@ function renderCalendar() {
             </div>
             <div class="tg-day-body" style="height:${TOTAL_HOURS * HOUR_PX}px;">
                 ${linesHtml}${lessonsHtml}
+            </div>
+            <div class="tg-day-footer ${dayLessons.length === 0 ? 'no-class' : ''}">
+                ${dayLessons.length === 0 ? '—' : '$' + dayRevenue.toFixed(2)}
             </div>
         </div>`;
     }
@@ -447,48 +455,48 @@ function renderCalendar() {
 
 function updateCalendarRevenueSummary() {
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    let projectedRevenue = 0;
+    // Count how many times each JS day-of-week (0=Sun..6=Sat) appears this month
+    const dayCount = [0,0,0,0,0,0,0];
+    for (let d = 1; d <= daysInMonth; d++) {
+        dayCount[new Date(year, month, d).getDay()]++;
+    }
+
+    // Projected monthly: multiply each slot's revenue by actual occurrences in the month
+    // schedule day: 0=Mon..6=Sun → JS day: 1=Mon..0=Sun
+    let projectedMonthly = 0;
     students.forEach(s => {
         s.schedule.forEach(slot => {
-            projectedRevenue += s.duration * s.hourlyRate;
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            projectedMonthly += s.duration * s.hourlyRate * dayCount[jsDay];
         });
     });
 
+    // Revenue earned (attended sessions) so far this month
     let revenueToDate = 0;
     Object.entries(attendanceRecords).forEach(([key, status]) => {
         if (status === 'attended') {
-            const [sid, dateStr, dayIdx] = key.split('_');
+            const parts = key.split('_');
+            const sid = parts[0], dateStr = parts[1], dayIdx = parts[2];
             const recordDate = new Date(dateStr);
-            if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+            if (recordDate.getMonth() === month && recordDate.getFullYear() === year) {
                 const student = students.find(s => s.id === parseInt(sid));
                 if (student) {
                     const schedule = student.schedule.find(sch => sch.day === parseInt(dayIdx));
-                    if (schedule) {
-                        revenueToDate += student.duration * student.hourlyRate;
-                    }
+                    if (schedule) revenueToDate += student.duration * student.hourlyRate;
                 }
             }
         }
     });
 
-    const todayDayOfWeek = today.getDay();
-    const scheduleDayIndex = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1;
-    let perDayRevenue = 0;
-    students.forEach(s => {
-        if (s.schedule.find(slot => slot.day === scheduleDayIndex)) {
-            const slot = s.schedule.find(slot => slot.day === scheduleDayIndex);
-            perDayRevenue += s.duration * s.hourlyRate;
-        }
-    });
-
-    const revenuePercent = projectedRevenue > 0 ? Math.round((revenueToDate / projectedRevenue) * 100) : 0;
+    const percent = projectedMonthly > 0 ? Math.round((revenueToDate / projectedMonthly) * 100) : 0;
 
     document.getElementById('calendarRevenueToDate').textContent = `$${revenueToDate.toFixed(2)}`;
-    document.getElementById('calendarPerDayRevenue').textContent = `$${perDayRevenue.toFixed(2)}`;
-    document.getElementById('calendarRevenuePercent').textContent = `${revenuePercent}%`;
+    document.getElementById('calendarProjectedMonthly').textContent = `$${projectedMonthly.toFixed(2)}`;
+    document.getElementById('calendarRevenuePercent').textContent = `${percent}%`;
 }
 
 window.toggleAttendance = async function(studentId, weekStartStr, dayIndex) {
