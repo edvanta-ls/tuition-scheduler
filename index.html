@@ -1978,13 +1978,13 @@ window.openStudentSearch = function(studentId) {
         });
         totalEarned += earned;
         totalSessions += att;
-        return `<tr style="border-bottom:1px solid #f0f0f0;">
+        return `<tr id="ss_row_${month}_${year}" style="border-bottom:1px solid #f0f0f0;">
             <td style="padding:8px 10px;font-size:13px;font-weight:500;">${monthName}</td>
             <td style="padding:8px 10px;font-size:13px;text-align:center;">${att}</td>
-            <td style="padding:8px 10px;font-size:13px;text-align:center;color:#c62828;">${canc}</td>
+            <td style="padding:8px 10px;font-size:13px;text-align:center;color:${canc>0?'#c62828':'#aaa'};">${canc}</td>
             <td style="padding:8px 10px;font-size:13px;text-align:right;font-weight:600;color:${earned>0?'#388e3c':'#aaa'};">${earned>0?'$'+earned.toFixed(2):'—'}</td>
             <td style="padding:8px 10px;text-align:right;">
-                <button onclick="window.closeStudentSearch();window.setAnalyticsMonth(${month},${year});window.switchTab('analytics')" style="padding:3px 9px;font-size:11px;background:none;border:1px solid #C9911A;color:#C9911A;border-radius:4px;cursor:pointer;">View</button>
+                <button id="ss_btn_${month}_${year}" onclick="window.toggleSearchMonth(${s.id},${month},${year})" style="padding:3px 9px;font-size:11px;background:none;border:1px solid #C9911A;color:#C9911A;border-radius:4px;cursor:pointer;">▶ Sessions</button>
             </td>
         </tr>`;
     }).join('');
@@ -2036,6 +2036,90 @@ window.openStudentSearch = function(studentId) {
 
 window.closeStudentSearch = function() {
     document.getElementById('studentSearchModal').style.display = 'none';
+};
+
+window.toggleSearchMonth = function(studentId, month, year) {
+    const existingRow = document.getElementById(`ss_detail_${month}_${year}`);
+    const btn = document.getElementById(`ss_btn_${month}_${year}`);
+    if (existingRow) {
+        existingRow.remove();
+        if (btn) btn.textContent = '▶ Sessions';
+        return;
+    }
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    if (btn) btn.textContent = '▼ Sessions';
+
+    // Build session list for this student + month
+    const sessionList = [];
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        if (parts[0] !== String(s.id)) return;
+        const wkS = new Date(parts[1] + 'T00:00:00');
+        const rec = new Date(wkS); rec.setDate(rec.getDate() + 1 + parseInt(parts[2]));
+        const sch = (s.schedule || []).find(sc => sc.day === parseInt(parts[2]));
+        if (!sch) return;
+        const sd = sessionData[key] || {};
+        const effDateKey = sd.rescheduleDate || toLocalDateKey(rec);
+        const effDate = new Date(effDateKey + 'T00:00:00');
+        if (effDate.getMonth() !== month || effDate.getFullYear() !== year) return;
+        const subj = sd.subject || sch.subject || s.subject;
+        const time = sd.time || sch.time;
+        const dur = sd.duration || s.duration;
+        const rev = dur * s.hourlyRate;
+        sessionList.push({ date: effDateKey, time, subject: subj, rev, status, payKey: key });
+    });
+    Object.values(oneOffLessons).forEach(ol => {
+        const match = ol.studentId === s.id || (ol.studentId === null && ol.studentName === s.studentName);
+        if (!match) return;
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+        const rev = ol.duration * ol.hourlyRate;
+        const payKey = `oneoff_${ol.id}`;
+        sessionList.push({ date: ol.dateKey, time: ol.time, subject: ol.subject, rev, status: ol.status || 'attended', payKey, isOneOff: true });
+    });
+    sessionList.sort((a, b) => a.date.localeCompare(b.date));
+
+    const rows = sessionList.map((l, i) => {
+        const d = new Date(l.date + 'T00:00:00');
+        const dateStr = d.toLocaleDateString('en-SG', { day: 'numeric', month: 'short', weekday: 'short' });
+        const isPaid = l.payKey && paymentRecords[l.payKey];
+        const statusCell = l.status === 'attended'
+            ? `<span style="color:#388e3c;font-weight:600;">✓ Attended</span>`
+            : l.status === 'cancelled'
+            ? `<span style="color:#c62828;font-weight:600;">✗ Cancelled</span>`
+            : `<span style="color:#aaa;">⌛ Pending</span>`;
+        const amtStyle = l.status === 'cancelled' ? 'text-decoration:line-through;color:#aaa;' : 'color:#388e3c;font-weight:600;';
+        return `<tr style="background:${i%2?'#fafafa':'white'};">
+            <td style="padding:6px 8px;font-size:12px;color:#555;">${dateStr}</td>
+            <td style="padding:6px 8px;font-size:12px;color:#555;">${l.time}</td>
+            <td style="padding:6px 8px;font-size:12px;color:#555;">${l.subject}</td>
+            <td style="padding:6px 8px;font-size:12px;${amtStyle}">$${l.rev.toFixed(2)}</td>
+            <td style="padding:6px 8px;font-size:12px;">${statusCell}</td>
+            <td style="padding:6px 8px;text-align:center;">${l.payKey ? `<input type="checkbox" ${isPaid?'checked':''} onchange="window.togglePayment('${l.payKey}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#388e3c;">` : ''}</td>
+        </tr>`;
+    }).join('');
+
+    const detailHtml = `<tr id="ss_detail_${month}_${year}">
+        <td colspan="5" style="padding:0;border-bottom:2px solid #E8C87A;">
+            <div style="background:#FDF5E0;padding:12px 10px;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead><tr style="background:#E8C87A20;">
+                        <th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a5800;text-transform:uppercase;">Date</th>
+                        <th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a5800;text-transform:uppercase;">Time</th>
+                        <th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a5800;text-transform:uppercase;">Subject</th>
+                        <th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a5800;text-transform:uppercase;">Amount</th>
+                        <th style="padding:5px 8px;text-align:left;font-size:10px;color:#7a5800;text-transform:uppercase;">Status</th>
+                        <th style="padding:5px 8px;text-align:center;font-size:10px;color:#7a5800;text-transform:uppercase;">Paid</th>
+                    </tr></thead>
+                    <tbody>${rows || '<tr><td colspan="6" style="padding:10px;text-align:center;color:#aaa;font-size:12px;">No sessions this month</td></tr>'}</tbody>
+                </table>
+            </div>
+        </td>
+    </tr>`;
+
+    const parentRow = document.getElementById(`ss_row_${month}_${year}`);
+    if (parentRow) parentRow.insertAdjacentHTML('afterend', detailHtml);
 };
 
 function renderTeamBanner() {
