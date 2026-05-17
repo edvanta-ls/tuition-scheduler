@@ -12,7 +12,7 @@
         .container { max-width: 1000px; margin: 0 auto; }
         h1 { font-size: 28px; margin-bottom: 24px; color: #222; }
         h2 { font-size: 18px; margin: 20px 0 12px; color: #333; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap; position: sticky; top: 0; z-index: 90; background: #f5f5f5; padding-top: 8px; }
         .tab-btn { padding: 12px 16px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; transition: all 0.3s; }
         .tab-btn.active { color: #C9911A; border-bottom-color: #C9911A; }
         .tab-content { display: none; }
@@ -149,7 +149,20 @@
         <button class="tab-btn" onclick="window.switchTab('calendar')">Calendar</button>
         <button class="tab-btn" onclick="window.switchTab('analytics')">Analytics</button>
         <button class="tab-btn" onclick="window.switchTab('settings')">Settings</button>
+        <div style="flex:1;"></div>
+        <div style="position:relative;display:flex;align-items:center;">
+            <input type="text" id="searchInput" placeholder="🔍 Search student…" oninput="window.searchStudents(this.value)" onfocus="document.getElementById('searchDropdown').style.display='block'" onblur="setTimeout(()=>document.getElementById('searchDropdown').style.display='none',200)"
+                style="padding:6px 12px;border:1px solid #E8C87A;border-radius:20px;font-size:13px;width:180px;background:#fff;outline:none;">
+            <div id="searchDropdown" style="display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:220px;max-height:280px;overflow-y:auto;z-index:200;margin-top:4px;"></div>
+        </div>
     </div>
+
+<div id="studentSearchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;overflow-y:auto;padding:20px;" onclick="if(event.target===this)window.closeStudentSearch()">
+    <div style="background:white;border-radius:12px;max-width:760px;margin:0 auto;padding:28px;position:relative;">
+        <button onclick="window.closeStudentSearch()" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;">✕</button>
+        <div id="studentSearchContent"></div>
+    </div>
+</div>
 
 <div id="students" class="tab-content active">
     <div class="success-msg" id="successMsg"></div>
@@ -1604,20 +1617,23 @@ function renderAnalytics() {
             const wkStart = new Date(parts[1] + 'T00:00:00');
             const rec = new Date(wkStart);
             rec.setDate(rec.getDate() + 1 + parseInt(parts[2]));
-            if (rec.getMonth() !== month || rec.getFullYear() !== year) return;
             const sch = s.schedule.find(sc => sc.day === parseInt(parts[2]));
             if (!sch) return;
             const sd = sessionData[key] || {};
+            // Use rescheduleDate if present — session happened on a different date
+            const effectiveDateKey = sd.rescheduleDate || toLocalDateKey(rec);
+            const effDate = new Date(effectiveDateKey + 'T00:00:00');
+            if (effDate.getMonth() !== month || effDate.getFullYear() !== year) return;
             const subject = sd.subject || sch.subject || s.subject;
             const time = sd.time || sch.time;
             const effectiveDuration = sd.duration || s.duration;
             const rev = effectiveDuration * s.hourlyRate;
             if (status === 'attended') {
                 sAtt++; sEarned += rev;
-                sessionList.push({ date: toLocalDateKey(rec), time, subject, rev, status: 'attended', note: sd.note || '', payKey: key });
+                sessionList.push({ date: effectiveDateKey, time, subject, rev, status: 'attended', note: sd.note || '', payKey: key });
             } else if (status === 'cancelled') {
                 sCanc++; sLost += rev;
-                sessionList.push({ date: toLocalDateKey(rec), time, subject, rev, status: 'cancelled', note: sd.note || '', payKey: key });
+                sessionList.push({ date: effectiveDateKey, time, subject, rev, status: 'cancelled', note: sd.note || '', payKey: key });
             }
         });
         // One-off lessons for this student this month — match by id OR by name (for custom ad-hoc)
@@ -1892,6 +1908,134 @@ window.clearAllData = async function() {
     } catch(e) {
         alert('Error: ' + e.message);
     }
+};
+
+// ── STUDENT SEARCH ────────────────────────────────────────────────────────────
+window.searchStudents = function(query) {
+    const dropdown = document.getElementById('searchDropdown');
+    if (!dropdown) return;
+    const q = query.trim().toLowerCase();
+    if (!q) { dropdown.innerHTML = ''; return; }
+    const matches = students.filter(s => s.studentName.toLowerCase().includes(q));
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div style="padding:12px 14px;font-size:13px;color:#aaa;">No students found</div>';
+        return;
+    }
+    dropdown.innerHTML = matches.map(s => {
+        const archived = s.endDate && toLocalDateKey(new Date()) > s.endDate;
+        return `<div onclick="window.openStudentSearch(${s.id})" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#FDF5E0'" onmouseout="this.style.background=''">
+            <span style="font-weight:600;color:#333;">${s.studentName}</span>
+            <span style="font-size:11px;color:#999;">${s.studentCode || ''}</span>
+            ${archived ? '<span style="font-size:10px;background:#fff3e0;color:#e65100;border-radius:3px;padding:1px 5px;">archived</span>' : ''}
+        </div>`;
+    }).join('');
+    dropdown.style.display = 'block';
+};
+
+window.openStudentSearch = function(studentId) {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchDropdown').style.display = 'none';
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    const today = new Date();
+    const todayKey = toLocalDateKey(today);
+    const archived = s.endDate && todayKey > s.endDate;
+    // Build 6-month revenue table
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        months.push({ month: d.getMonth(), year: d.getFullYear() });
+    }
+    let totalEarned = 0, totalSessions = 0;
+    const monthRows = months.map(({ month, year }) => {
+        const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+        let att = 0, canc = 0, earned = 0;
+        Object.entries(attendanceRecords).forEach(([key, status]) => {
+            const parts = key.split('_');
+            if (parts[0] !== String(s.id)) return;
+            const wkS = new Date(parts[1] + 'T00:00:00');
+            const rec = new Date(wkS); rec.setDate(rec.getDate() + 1 + parseInt(parts[2]));
+            const sch = (s.schedule || []).find(sc => sc.day === parseInt(parts[2]));
+            if (!sch) return;
+            const sd = sessionData[key] || {};
+            const effDateKey = sd.rescheduleDate || toLocalDateKey(rec);
+            const effDate = new Date(effDateKey + 'T00:00:00');
+            if (effDate.getMonth() !== month || effDate.getFullYear() !== year) return;
+            const dur = sd.duration || s.duration;
+            const rev = dur * s.hourlyRate;
+            if (status === 'attended') { att++; earned += rev; }
+            else if (status === 'cancelled') { canc++; }
+        });
+        // One-offs
+        Object.values(oneOffLessons).forEach(ol => {
+            const match = ol.studentId === s.id || (ol.studentId === null && ol.studentName === s.studentName);
+            if (!match) return;
+            const olDate = new Date(ol.dateKey + 'T00:00:00');
+            if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+            const rev = ol.duration * ol.hourlyRate;
+            if (ol.status === 'attended') { att++; earned += rev; }
+            else if (ol.status === 'cancelled') { canc++; }
+        });
+        totalEarned += earned;
+        totalSessions += att;
+        return `<tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:8px 10px;font-size:13px;font-weight:500;">${monthName}</td>
+            <td style="padding:8px 10px;font-size:13px;text-align:center;">${att}</td>
+            <td style="padding:8px 10px;font-size:13px;text-align:center;color:#c62828;">${canc}</td>
+            <td style="padding:8px 10px;font-size:13px;text-align:right;font-weight:600;color:${earned>0?'#388e3c':'#aaa'};">${earned>0?'$'+earned.toFixed(2):'—'}</td>
+            <td style="padding:8px 10px;text-align:right;">
+                <button onclick="window.closeStudentSearch();window.setAnalyticsMonth(${month},${year});window.switchTab('analytics')" style="padding:3px 9px;font-size:11px;background:none;border:1px solid #C9911A;color:#C9911A;border-radius:4px;cursor:pointer;">View</button>
+            </td>
+        </tr>`;
+    }).join('');
+    // Attendance rate
+    const allAtt = Object.entries(attendanceRecords).filter(([k,v]) => k.startsWith(s.id+'_') && v==='attended').length;
+    const allMarked = Object.keys(attendanceRecords).filter(k => k.startsWith(s.id+'_')).length;
+    const attRate = allMarked > 0 ? Math.round(allAtt/allMarked*100) : 0;
+    const content = `
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:20px;">
+            <div>
+                <div style="font-size:20px;font-weight:800;color:#C9911A;">${s.studentName} ${s.studentCode ? '<span style="font-size:12px;color:#999;font-weight:400;">'+s.studentCode+'</span>' : ''}</div>
+                <div style="font-size:13px;color:#666;margin-top:4px;">📚 ${s.subject} &nbsp;·&nbsp; ${s.duration}h @ $${s.hourlyRate}/hr &nbsp;·&nbsp; $${(s.duration*s.hourlyRate).toFixed(0)}/session</div>
+                ${s.startDate ? `<div style="font-size:12px;color:#aaa;margin-top:2px;">Since ${s.startDate}${s.endDate?' → '+s.endDate:''}</div>` : ''}
+                ${archived ? '<span style="font-size:11px;background:#fff3e0;color:#e65100;border-radius:4px;padding:2px 8px;">Archived</span>' : ''}
+            </div>
+            <div style="margin-left:auto;text-align:center;background:#C9911A;color:white;border-radius:10px;padding:8px 16px;min-width:60px;">
+                <div style="font-size:22px;font-weight:800;">${attRate}%</div>
+                <div style="font-size:10px;opacity:0.9;">att. rate</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+            <div style="background:#f9f9f9;border-radius:8px;padding:12px 18px;flex:1;min-width:100px;text-align:center;">
+                <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:1px;">Total Sessions</div>
+                <div style="font-size:22px;font-weight:700;color:#333;margin-top:4px;">${totalSessions}</div>
+            </div>
+            <div style="background:#f9f9f9;border-radius:8px;padding:12px 18px;flex:1;min-width:100px;text-align:center;">
+                <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:1px;">Revenue (6mo)</div>
+                <div style="font-size:22px;font-weight:700;color:#388e3c;margin-top:4px;">$${totalEarned.toFixed(0)}</div>
+            </div>
+            <div style="background:#f9f9f9;border-radius:8px;padding:12px 18px;flex:1;min-width:100px;text-align:center;">
+                <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:1px;">Per Month</div>
+                <div style="font-size:22px;font-weight:700;color:#C9911A;margin-top:4px;">$${(totalEarned/6).toFixed(0)}</div>
+            </div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Monthly Breakdown</div>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead><tr style="background:#f5f5f5;">
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:#999;text-transform:uppercase;">Month</th>
+                <th style="padding:8px 10px;text-align:center;font-size:11px;color:#999;text-transform:uppercase;">Attended</th>
+                <th style="padding:8px 10px;text-align:center;font-size:11px;color:#999;text-transform:uppercase;">Cancelled</th>
+                <th style="padding:8px 10px;text-align:right;font-size:11px;color:#999;text-transform:uppercase;">Earned</th>
+                <th></th>
+            </tr></thead>
+            <tbody>${monthRows}</tbody>
+        </table>`;
+    document.getElementById('studentSearchContent').innerHTML = content;
+    document.getElementById('studentSearchModal').style.display = 'block';
+};
+
+window.closeStudentSearch = function() {
+    document.getElementById('studentSearchModal').style.display = 'none';
 };
 
 function renderTeamBanner() {
