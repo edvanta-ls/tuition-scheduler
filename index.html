@@ -96,6 +96,13 @@
         .modal-header h2 { margin:0; font-size:18px; }
         .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#999; padding:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
         .modal-close:hover { background:#f0f0f0; border-radius:50%; }
+        .spd-detail { overflow:hidden; transition:max-height 0.3s ease, opacity 0.2s; max-height:3000px; opacity:1; }
+        .spd-detail.collapsed { max-height:0; opacity:0; }
+        .spd-toggle { cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:start; }
+        .spd-chevron { font-size:12px; color:#bbb; margin-left:8px; flex-shrink:0; margin-top:4px; transition:transform 0.2s; }
+        .spd-toggle.collapsed .spd-chevron { transform:rotate(180deg); }
+        .lesson-list-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f5f5f5; font-size:12px; gap:8px; }
+        .lesson-list-row:last-child { border-bottom:none; }
     </style>
 </head>
 <body>
@@ -1075,6 +1082,13 @@ window.deleteOneOff = async function(id) {
     } catch(e) { alert('Error: ' + e.message); }
 };
 
+window.toggleStudentCard = function(id) {
+    const detail = document.getElementById('spd_' + id);
+    const toggle = document.getElementById('sph_' + id);
+    if (detail) detail.classList.toggle('collapsed');
+    if (toggle) toggle.classList.toggle('collapsed');
+};
+
 function renderAnalytics() {
     const container = document.getElementById('analyticsList');
     if (students.length === 0) {
@@ -1292,7 +1306,8 @@ function renderAnalytics() {
             else sWkPend++;
         });
         Object.values(oneOffLessons).forEach(ol => {
-            if (ol.studentId !== s.id) return;
+            const match = ol.studentId === s.id || (ol.studentId === null && ol.studentName === s.studentName);
+            if (!match) return;
             const olDate = new Date(ol.dateKey + 'T00:00:00');
             const wkEnd = new Date(thisWeekStart); wkEnd.setDate(wkEnd.getDate() + 7);
             if (olDate >= thisWeekStart && olDate < wkEnd) sWkOneOff++;
@@ -1300,6 +1315,8 @@ function renderAnalytics() {
 
         // This month — per student (regular sessions)
         let sAtt = 0, sCanc = 0, sEarned = 0, sLost = 0, sRescheduled = 0, sOneOff = 0;
+        // Build attended lesson list for display
+        const attendedLessons = [];
         Object.entries(attendanceRecords).forEach(([key, status]) => {
             const parts = key.split('_');
             if (parts[0] !== String(s.id)) return;
@@ -1309,19 +1326,27 @@ function renderAnalytics() {
             if (rec.getMonth() !== month || rec.getFullYear() !== year) return;
             const sch = s.schedule.find(sc => sc.day === parseInt(parts[2]));
             if (!sch) return;
+            const sd = sessionData[key] || {};
+            const subject = sd.subject || sch.subject || s.subject;
+            const time = sd.time || sch.time;
             const rev = s.duration * s.hourlyRate;
-            if (status === 'attended')      { sAtt++;  sEarned += rev; }
-            else if (status === 'cancelled') { sCanc++; sLost   += rev; }
+            if (status === 'attended') {
+                sAtt++; sEarned += rev;
+                attendedLessons.push({ date: toLocalDateKey(rec), time, subject, rev, note: sd.note || '' });
+            } else if (status === 'cancelled') { sCanc++; sLost += rev; }
         });
-        // One-off lessons for this student this month
+        // One-off lessons for this student this month — match by id OR by name (for custom ad-hoc)
         Object.values(oneOffLessons).forEach(ol => {
-            if (ol.studentId !== s.id) return;
+            const match = ol.studentId === s.id || (ol.studentId === null && ol.studentName === s.studentName);
+            if (!match) return;
             const olDate = new Date(ol.dateKey + 'T00:00:00');
             if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
             sOneOff++;
             const rev = ol.duration * ol.hourlyRate;
-            if (ol.status === 'attended')      { sAtt++;  sEarned += rev; }
-            else if (ol.status === 'cancelled') { sCanc++; sLost   += rev; }
+            if (ol.status === 'attended') {
+                sAtt++; sEarned += rev;
+                attendedLessons.push({ date: ol.dateKey, time: ol.time, subject: ol.subject, rev, note: ol.note || '', isOneOff: true });
+            } else if (ol.status === 'cancelled') { sCanc++; sLost += rev; }
         });
         // Rescheduled sessions this month
         Object.entries(sessionData).forEach(([key, data]) => {
@@ -1335,50 +1360,93 @@ function renderAnalytics() {
             sRescheduled++;
         });
 
+        // Monthly remaining pending (future sessions this month not yet marked)
+        const todayKey = toLocalDateKey(today);
+        let sMonthPending = 0;
+        s.schedule.forEach(slot => {
+            const jsDay = slot.day === 6 ? 0 : slot.day + 1;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                if (date.getDay() !== jsDay) continue;
+                const dk = toLocalDateKey(date);
+                if (dk <= todayKey) continue; // only future dates
+                if (s.startDate && dk < s.startDate) continue;
+                const mon = getMonday(new Date(date));
+                const wkKey = mon.toISOString().split('T')[0];
+                const key = `${s.id}_${wkKey}_${slot.day}`;
+                if (!attendanceRecords[key]) sMonthPending++;
+            }
+        });
+
         const sMarked  = sAtt + sCanc;
         const sAttRate = sMarked > 0 ? Math.round((sAtt / sMarked) * 100) : null;
 
+        // Sort attended lessons by date
+        attendedLessons.sort((a, b) => a.date > b.date ? 1 : -1);
+        const lessonListHtml = attendedLessons.length > 0
+            ? `<div style="margin-top:4px;">
+                ${attendedLessons.map((l, i) => {
+                    const d = new Date(l.date + 'T00:00:00');
+                    const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+                    return `<div class="lesson-list-row">
+                        <span style="color:#888;min-width:110px;">${i+1}. ${d.getDate()} ${d.toLocaleString('default',{month:'short'})} ${dayName} · ${l.time}</span>
+                        <span style="color:#555;flex:1;text-align:center;">${l.subject}${l.isOneOff ? ' <span style="color:#1976d2;font-size:10px;">(ad-hoc)</span>' : ''}</span>
+                        <span style="color:#388e3c;font-weight:700;">$${l.rev.toFixed(2)}</span>
+                    </div>`;
+                }).join('')}
+               </div>`
+            : `<div style="font-size:11px;color:#aaa;margin-top:6px;font-style:italic;">No attended sessions recorded yet.</div>`;
+
         html += `<div class="student-card">
-            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+            <div id="sph_${s.id}" class="spd-toggle" onclick="window.toggleStudentCard(${s.id})">
                 <div>
                     <div style="font-size:16px;font-weight:700;color:#1976d2;">${s.studentName}</div>
                     <div style="font-size:12px;color:#666;margin-top:3px;">📖 ${s.subject} &nbsp;·&nbsp; ${s.duration}h @ $${s.hourlyRate}/hr</div>
                 </div>
-                ${sAttRate !== null
-                    ? `<div style="text-align:center;background:${rateColor(sAttRate)};color:white;border-radius:10px;padding:7px 14px;line-height:1.2;">
-                           <div style="font-size:18px;font-weight:700;">${sAttRate}%</div>
-                           <div style="font-size:10px;">att. rate</div>
-                       </div>`
-                    : ''}
+                <div style="display:flex;align-items:center;gap:8px;">
+                    ${sAttRate !== null
+                        ? `<div style="text-align:center;background:${rateColor(sAttRate)};color:white;border-radius:10px;padding:7px 14px;line-height:1.2;">
+                               <div style="font-size:18px;font-weight:700;">${sAttRate}%</div>
+                               <div style="font-size:10px;">att. rate</div>
+                           </div>`
+                        : ''}
+                    <span class="spd-chevron">▲</span>
+                </div>
             </div>
 
-            ${sectionLabel('This week')}
-            <div class="revenue-summary" style="grid-template-columns:repeat(4,1fr);margin-top:0;">
-                <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value">${s.schedule.length}</div></div>
-                <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sWkAtt}</div></div>
-                <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sWkCanc}</div></div>
-                <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${sWkPend}</div></div>
-            </div>
-            ${sWkOneOff > 0 ? `<div style="font-size:11px;color:#1976d2;margin-top:4px;">+ ${sWkOneOff} ad-hoc session${sWkOneOff>1?'s':''} this week</div>` : ''}
+            <div id="spd_${s.id}" class="spd-detail">
+                ${sectionLabel('This week')}
+                <div class="revenue-summary" style="grid-template-columns:repeat(4,1fr);margin-top:0;">
+                    <div class="stat-card"><div class="stat-label">Scheduled</div><div class="stat-value">${s.schedule.length}</div></div>
+                    <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sWkAtt}</div></div>
+                    <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sWkCanc}</div></div>
+                    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:#999;">${sWkPend}</div></div>
+                </div>
+                ${sWkOneOff > 0 ? `<div style="font-size:11px;color:#1976d2;margin-top:4px;">+ ${sWkOneOff} ad-hoc session${sWkOneOff>1?'s':''} this week</div>` : ''}
+                ${sMonthPending > 0 ? `<div style="font-size:11px;color:#888;margin-top:4px;">📅 ${sMonthPending} session${sMonthPending>1?'s':''} remaining this month (not yet marked)</div>` : ''}
 
-            ${sectionLabel(monthName + ' ' + year)}
-            <div class="revenue-summary" style="margin-top:0;">
-                <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${weeklyRev.toFixed(2)}</div></div>
-                <div class="stat-card"><div class="stat-label">Projected Monthly</div><div class="stat-value">$${monthlyRev.toFixed(2)}</div></div>
-                <div class="stat-card"><div class="stat-label">Earned</div><div class="stat-value" style="color:#388e3c;">$${sEarned.toFixed(2)}</div></div>
-                <div class="stat-card"><div class="stat-label">Lost (cancelled)</div><div class="stat-value" style="color:#c62828;">$${sLost.toFixed(2)}</div></div>
-                <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sAtt} sessions</div></div>
-                <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sCanc} sessions</div></div>
-                <div class="stat-card"><div class="stat-label">Rescheduled</div><div class="stat-value" style="color:#f57c00;">${sRescheduled}</div></div>
-                <div class="stat-card"><div class="stat-label">Ad-hoc</div><div class="stat-value" style="color:#1976d2;">${sOneOff} sessions</div></div>
-            </div>
+                ${sectionLabel(monthName + ' ' + year)}
+                <div class="revenue-summary" style="margin-top:0;">
+                    <div class="stat-card"><div class="stat-label">Per Week</div><div class="stat-value">$${weeklyRev.toFixed(2)}</div></div>
+                    <div class="stat-card"><div class="stat-label">Projected Monthly</div><div class="stat-value">$${monthlyRev.toFixed(2)}</div></div>
+                    <div class="stat-card"><div class="stat-label">Earned</div><div class="stat-value" style="color:#388e3c;">$${sEarned.toFixed(2)}</div></div>
+                    <div class="stat-card"><div class="stat-label">Lost (cancelled)</div><div class="stat-value" style="color:#c62828;">$${sLost.toFixed(2)}</div></div>
+                    <div class="stat-card"><div class="stat-label">Attended</div><div class="stat-value" style="color:#388e3c;">${sAtt} sessions</div></div>
+                    <div class="stat-card"><div class="stat-label">Cancelled</div><div class="stat-value" style="color:#c62828;">${sCanc} sessions</div></div>
+                    <div class="stat-card"><div class="stat-label">Rescheduled</div><div class="stat-value" style="color:#f57c00;">${sRescheduled}</div></div>
+                    <div class="stat-card"><div class="stat-label">Ad-hoc</div><div class="stat-value" style="color:#1976d2;">${sOneOff} sessions</div></div>
+                </div>
 
-            ${sAttRate !== null ? `<div style="margin-top:12px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-                    <span style="font-size:12px;color:#666;">Attendance rate &nbsp;(${sAtt} attended · ${sCanc} cancelled)</span>
-                    <span style="font-size:12px;font-weight:700;color:${rateColor(sAttRate)};">${sAttRate}%</span>
-                </div>${bar(sAttRate)}
-            </div>` : `<div style="font-size:11px;color:#aaa;margin-top:10px;">No sessions marked yet — click lessons in the calendar to track attendance.</div>`}
+                ${sAttRate !== null ? `<div style="margin-top:12px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                        <span style="font-size:12px;color:#666;">Attendance rate &nbsp;(${sAtt} attended · ${sCanc} cancelled)</span>
+                        <span style="font-size:12px;font-weight:700;color:${rateColor(sAttRate)};">${sAttRate}%</span>
+                    </div>${bar(sAttRate)}
+                </div>` : `<div style="font-size:11px;color:#aaa;margin-top:10px;">No sessions marked yet — click lessons in the calendar to track attendance.</div>`}
+
+                ${sectionLabel('Attended sessions — ' + monthName)}
+                ${lessonListHtml}
+            </div>
         </div>`;
     });
 
