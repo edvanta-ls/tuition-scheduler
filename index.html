@@ -216,6 +216,7 @@
     </div>
     <div class="week-nav" style="margin-bottom:8px;">
         <button class="secondary" onclick="window.previousWeek()">← Previous</button>
+        <button class="secondary" onclick="window.goToToday()" style="font-size:12px;padding:6px 10px;">Today</button>
         <div class="week-info" id="weekDisplay">Loading...</div>
         <button class="secondary" onclick="window.nextWeek()">Next →</button>
     </div>
@@ -637,6 +638,8 @@ window.addStudent = async function() {
 // Per-slot helpers: slot.duration / slot.hourlyRate override student defaults
 function slotDur(s, slot)  { return (slot && slot.duration)   || s.duration; }
 function slotRate(s, slot) { return (slot && slot.hourlyRate) || s.hourlyRate; }
+// Per-session rate override: sd.rate (from session modal) takes priority, then slot/student defaults
+function sdRate(sd, s, slot) { return (sd && sd.rate != null) ? sd.rate : slotRate(s, slot); }
 
 function calcEndTime(startTime, durationHours) {
     const [h, m] = startTime.split(':').map(Number);
@@ -881,7 +884,7 @@ function renderCalendar() {
                 subject: slot.subject || s.subject,
                 time: slot.time,
                 duration: effectiveDur,
-                revenue: (effectiveDur * slotRate(s,slot)).toFixed(2),
+                revenue: (effectiveDur * sdRate(ovr, s, slot)).toFixed(2),
                 status: attendanceRecords[key] || null
             });
         });
@@ -1105,6 +1108,11 @@ window.nextWeek = function() {
     renderCalendar();
 };
 
+window.goToToday = function() {
+    currentWeekStart = getMonday(new Date());
+    renderCalendar();
+};
+
 // ── LESSON DETAIL MODAL ────────────────────────────────────────────────────
 let _lm = {};
 
@@ -1170,13 +1178,15 @@ window.openLessonModal = function(studentId, weekStartKey, dayIndex) {
     const origDateKey = toLocalDateKey(lessonDate);
     const sessionDateKey = sd.rescheduleDate || origDateKey;
     const effectiveDuration = sd.duration || slotDur(student, slot);
+    const effectiveRate = sd.rate != null ? sd.rate : slotRate(student, slot);
     const endTime = calcEndTime(sessionTime, effectiveDuration);
     const dateStr = new Date(sessionDateKey + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-    _lm = { type: 'recurring', key, status, slotTime: slot.time, origDate: origDateKey, origDuration: slotDur(student, slot) };
+    _lm = { type: 'recurring', key, status, slotTime: slot.time, origDate: origDateKey, origDuration: slotDur(student, slot), origRate: slotRate(student, slot) };
     document.getElementById('lm_title').textContent = student.studentName;
     document.getElementById('lm_body').innerHTML = buildLessonBody({
-        meta: `${dateStr} · ${sessionTime}–${endTime} · $${(effectiveDuration * slotRate(student, slot)).toFixed(2)}`,
+        meta: `${dateStr} · ${sessionTime}–${endTime} · $${(effectiveDuration * effectiveRate).toFixed(2)}`,
         status, subject, note, time: sessionTime, date: sessionDateKey, duration: effectiveDuration,
+        rate: effectiveRate,
         saveFunc: 'window.saveLessonModal()',
         cancelFunc: 'window.closeLessonModal()'
     });
@@ -1198,18 +1208,23 @@ window.saveLessonModal = async function() {
     const time = document.getElementById('lm_time').value;
     const date = document.getElementById('lm_date').value;
     const dur = parseFloat(document.getElementById('lm_dur').value) || _lm.origDuration;
-    const { key, status, slotTime, origDate, origDuration } = _lm;
+    const rateEl = document.getElementById('lm_rate');
+    const _parsedRate = rateEl ? parseFloat(rateEl.value) : NaN;
+    const sessionRate = (!isNaN(_parsedRate) && _parsedRate >= 0) ? _parsedRate : _lm.origRate;
+    const { key, status, slotTime, origDate, origDuration, origRate } = _lm;
     const updAtt = { ...attendanceRecords };
     if (!status) delete updAtt[key]; else updAtt[key] = status;
     const updSd = { ...sessionData };
     const timeChanged = time !== slotTime;
     const dateChanged = date !== origDate;
     const durChanged = dur !== origDuration;
-    if (subject || note || timeChanged || dateChanged || durChanged) {
+    const rateChanged = sessionRate !== origRate;
+    if (subject || note || timeChanged || dateChanged || durChanged || rateChanged) {
         updSd[key] = { subject, note,
             ...(timeChanged ? { time } : {}),
             ...(dateChanged ? { rescheduleDate: date } : {}),
-            ...(durChanged ? { duration: dur } : {}) };
+            ...(durChanged ? { duration: dur } : {}),
+            ...(rateChanged ? { rate: sessionRate } : {}) };
     } else {
         delete updSd[key];
     }
@@ -1443,7 +1458,7 @@ function renderAnalytics() {
             if (s.startDate && slotDateKey < s.startDate) return;
             if (s.endDate && slotDateKey > s.endDate) return;
             const status = attendanceRecords[key];
-            const rev = (ovr.duration || slotDur(s,slot)) * slotRate(s,slot);
+            const rev = (ovr.duration || slotDur(s,slot)) * sdRate(ovr, s, slot);
             wkScheduled++;
             wkPotential += rev;
             if (status === 'attended')      { wkAttended++;  wkEarned += rev; }
@@ -1459,6 +1474,24 @@ function renderAnalytics() {
         wkScheduled++; wkPotential += rev;
         if (ol.status === 'attended')      { wkAttended++;  wkEarned += rev; }
         else if (ol.status === 'cancelled') { wkCancelled++; wkLost   += rev; }
+    });
+    // Count recurring sessions rescheduled INTO this week from other weeks
+    Object.entries(sessionData).forEach(([key, data]) => {
+        if (!data.rescheduleDate) return;
+        const rd = new Date(data.rescheduleDate + 'T00:00:00');
+        const diff = Math.round((rd - thisWeekStart) / 86400000);
+        if (diff < 0 || diff >= 7) return;
+        const parts = key.split('_');
+        if (parts.length < 3 || parts[1] === thisWeekKey) return; // same week already counted above
+        const student = students.find(s => s.id === parseInt(parts[0]));
+        if (!student || (student.endDate && todayDateKey > student.endDate)) return;
+        const slot = student.schedule.find(sc => sc.day === parseInt(parts[2]));
+        if (!slot) return;
+        const status = attendanceRecords[key];
+        const rev = (data.duration || slotDur(student, slot)) * sdRate(data, student, slot);
+        wkScheduled++; wkPotential += rev;
+        if (status === 'attended')      { wkAttended++;  wkEarned += rev; }
+        else if (status === 'cancelled') { wkCancelled++; wkLost   += rev; }
     });
     const wkPending  = wkScheduled - wkAttended - wkCancelled;
     const wkMarked   = wkAttended + wkCancelled;
@@ -1502,7 +1535,7 @@ function renderAnalytics() {
         const effectiveDateKey = sd.rescheduleDate || toLocalDateKey(rec);
         const effDate = new Date(effectiveDateKey + 'T00:00:00');
         if (effDate.getMonth() !== month || effDate.getFullYear() !== year) return;
-        const rev = (sd.duration || slotDur(student, sch)) * slotRate(student, sch);
+        const rev = (sd.duration || slotDur(student, sch)) * sdRate(sd, student, sch);
         if (status === 'attended')      { moAttended++;  moEarned += rev; }
         else if (status === 'cancelled') { moCancelled++; moLost   += rev; }
     });
@@ -1644,10 +1677,22 @@ function renderAnalytics() {
         const sIsArchived = !!(s.endDate && todayDateKey > s.endDate);
         let sWkAtt = 0, sWkCanc = 0, sWkPend = 0, sWkOneOff = 0;
         s.schedule.forEach(slot => {
-            const status = attendanceRecords[`${s.id}_${thisWeekKey}_${slot.day}`];
+            const key = `${s.id}_${thisWeekKey}_${slot.day}`;
+            const ovr = sessionData[key] || {};
+            if (ovr.rescheduleDate) {
+                const rd = new Date(ovr.rescheduleDate + 'T00:00:00');
+                const diff = Math.round((rd - thisWeekStart) / 86400000);
+                if (diff < 0 || diff >= 7) return;
+            }
+            const slotDate = new Date(thisWeekStart);
+            slotDate.setDate(slotDate.getDate() + slot.day);
+            const slotDateKey = ovr.rescheduleDate || toLocalDateKey(slotDate);
+            if (s.startDate && slotDateKey < s.startDate) return;
+            if (s.endDate && slotDateKey > s.endDate) return;
+            const status = attendanceRecords[key];
             if (status === 'attended') sWkAtt++;
             else if (status === 'cancelled') sWkCanc++;
-            else if (!sIsArchived) sWkPend++; // no phantom pending for archived students
+            else if (!sIsArchived) sWkPend++;
         });
         Object.values(oneOffLessons).forEach(ol => {
             const match = ol.studentId === s.id || (ol.studentId === null && ol.studentName === s.studentName);
@@ -1677,7 +1722,7 @@ function renderAnalytics() {
             const subject = sd.subject || sch.subject || s.subject;
             const time = sd.time || sch.time;
             const effectiveDuration = sd.duration || slotDur(s, sch);
-            const rev = effectiveDuration * slotRate(s, sch);
+            const rev = effectiveDuration * sdRate(sd, s, sch);
             if (status === 'attended') {
                 sAtt++; sEarned += rev;
                 sessionList.push({ date: effectiveDateKey, time, subject, rev, status: 'attended', note: sd.note || '', payKey: key });
@@ -1757,7 +1802,7 @@ function renderAnalytics() {
                 const subject = sd.subject || slot.subject || s.subject;
                 const time = sd.time || slot.time;
                 const effectiveDuration = sd.duration || slotDur(s, slot);
-                const rev = effectiveDuration * slotRate(s, slot);
+                const rev = effectiveDuration * sdRate(sd, s, slot);
                 sessionList.push({ date: effectiveDate, time, subject, rev, status: 'pending', payKey: key });
             }
         });
