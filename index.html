@@ -215,6 +215,30 @@
         <button class="secondary" onclick="window.signOutUser()">Sign Out</button>
     </div>
 
+    <h2 style="margin-top:28px;">Brand &amp; Invoice</h2>
+    <div class="student-card" style="padding:20px;">
+        <div class="grid-2">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Business Name</label>
+                <input type="text" id="brandName" placeholder="e.g. Edvanta Learning Studio">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Contact / Email (shown on invoice)</label>
+                <input type="text" id="brandContact" placeholder="e.g. +65 9xxx xxxx">
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+            <label>Logo</label>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <button class="secondary" onclick="document.getElementById('logoFile').click()" style="padding:7px 14px;font-size:13px;">Upload Logo</button>
+                <input type="file" id="logoFile" accept="image/*" style="display:none;" onchange="window.uploadLogo(event)">
+                <span id="logoStatus" style="font-size:12px;color:#aaa;">No logo uploaded</span>
+            </div>
+            <div id="logoPreview" style="margin-top:10px;"></div>
+        </div>
+        <button onclick="window.saveBrandSettings()" style="margin-top:4px;">Save Brand Settings</button>
+    </div>
+
     <h2>Export</h2>
     <div class="btn-row">
         <button class="success-btn" onclick="window.exportToExcel()">📊 Export Sessions (Excel)</button>
@@ -333,6 +357,8 @@ let currentWeekStart = getMonday(new Date());
 let analyticsMonth = new Date().getMonth();
 let analyticsYear = new Date().getFullYear();
 let _archiveStudentId = null;
+let paymentRecords = {};
+let brandSettings = {};
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const TIMES = (()=>{const t=[];for(let h=8;h<=23;h++){['00','15','30','45'].forEach(m=>{t.push(`${String(h).padStart(2,'0')}:${m}`);});}t.push('00:00');return t;})();
@@ -387,6 +413,7 @@ function isAnalyticsActive() {
 function setupListeners() {
     db.collection('users').doc(currentUser.uid).collection('students').onSnapshot(snap => {
         students = snap.docs.map(d => d.data());
+        ensureStudentCodes();
         renderStudents();
         renderCalendar();
         if (isAnalyticsActive()) renderAnalytics();
@@ -407,6 +434,16 @@ function setupListeners() {
         oneOffLessons = snap.exists ? (snap.data().lessons || {}) : {};
         renderCalendar();
         if (isAnalyticsActive()) renderAnalytics();
+    });
+
+    db.collection('users').doc(currentUser.uid).collection('payment').doc('records').onSnapshot(snap => {
+        paymentRecords = snap.exists ? (snap.data().records || {}) : {};
+        if (isAnalyticsActive()) renderAnalytics();
+    });
+
+    db.collection('users').doc(currentUser.uid).collection('brand').doc('settings').onSnapshot(snap => {
+        brandSettings = snap.exists ? snap.data() : {};
+        renderBrandSettings();
     });
 }
 
@@ -432,6 +469,35 @@ window.toggleDay = function(i) {
     const cb = document.getElementById(`day_${i}`);
     document.getElementById(`times_${i}`).style.display = cb.checked ? 'block' : 'none';
 };
+
+async function ensureStudentCodes() {
+    const missing = students.filter(s => !s.studentCode);
+    if (missing.length === 0) return;
+    let maxNum = 0;
+    students.forEach(s => {
+        if (s.studentCode) {
+            const n = parseInt(s.studentCode.replace(/\D/g, ''));
+            if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
+    });
+    const sorted = [...missing].sort((a, b) => a.id - b.id);
+    for (const s of sorted) {
+        maxNum++;
+        const code = `ELS${String(maxNum).padStart(3, '0')}`;
+        await db.collection('users').doc(currentUser.uid).collection('students').doc(String(s.id)).update({ studentCode: code });
+    }
+}
+
+function nextStudentCode() {
+    let maxNum = 0;
+    students.forEach(s => {
+        if (s.studentCode) {
+            const n = parseInt(s.studentCode.replace(/\D/g, ''));
+            if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
+    });
+    return `ELS${String(maxNum + 1).padStart(3, '0')}`;
+}
 
 window.addStudent = async function() {
     const name = document.getElementById('studentName').value.trim();
@@ -468,6 +534,7 @@ window.addStudent = async function() {
         duration,
         schedule,
         startDate: document.getElementById('startDate').value || toLocalDateKey(new Date()),
+        studentCode: nextStudentCode(),
         createdAt: new Date().toISOString()
     };
 
@@ -542,7 +609,7 @@ function renderStudents() {
         return `<div class="student-card${isArchived ? ' archived-card' : ''}" style="padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
                 <div>
-                    <div style="font-size:15px;font-weight:700;color:${isArchived?'#999':'#1976d2'};">${s.studentName}</div>
+                    <div style="font-size:15px;font-weight:700;color:${isArchived?'#999':'#1976d2'};">${s.studentName} ${s.studentCode?`<span style="font-size:11px;font-weight:500;color:#aaa;margin-left:4px;">${s.studentCode}</span>`:''}</div>
                     <div style="font-size:12px;color:#888;margin-top:2px;">${subInfo}</div>
                 </div>
                 <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
@@ -1486,10 +1553,10 @@ function renderAnalytics() {
             const rev = effectiveDuration * s.hourlyRate;
             if (status === 'attended') {
                 sAtt++; sEarned += rev;
-                sessionList.push({ date: toLocalDateKey(rec), time, subject, rev, status: 'attended', note: sd.note || '' });
+                sessionList.push({ date: toLocalDateKey(rec), time, subject, rev, status: 'attended', note: sd.note || '', payKey: key });
             } else if (status === 'cancelled') {
                 sCanc++; sLost += rev;
-                sessionList.push({ date: toLocalDateKey(rec), time, subject, rev, status: 'cancelled', note: sd.note || '' });
+                sessionList.push({ date: toLocalDateKey(rec), time, subject, rev, status: 'cancelled', note: sd.note || '', payKey: key });
             }
         });
         // One-off lessons for this student this month — match by id OR by name (for custom ad-hoc)
@@ -1500,12 +1567,13 @@ function renderAnalytics() {
             if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
             sOneOff++;
             const rev = ol.duration * ol.hourlyRate;
+            const payKey = `oneoff_${ol.id}`;
             if (ol.status === 'attended') {
                 sAtt++; sEarned += rev;
-                sessionList.push({ date: ol.dateKey, time: ol.time, subject: ol.subject, rev, status: 'attended', note: ol.note || '', isOneOff: true });
+                sessionList.push({ date: ol.dateKey, time: ol.time, subject: ol.subject, rev, status: 'attended', note: ol.note || '', isOneOff: true, payKey });
             } else if (ol.status === 'cancelled') {
                 sCanc++; sLost += rev;
-                sessionList.push({ date: ol.dateKey, time: ol.time, subject: ol.subject, rev, status: 'cancelled', note: ol.note || '', isOneOff: true });
+                sessionList.push({ date: ol.dateKey, time: ol.time, subject: ol.subject, rev, status: 'cancelled', note: ol.note || '', isOneOff: true, payKey });
             }
         });
         // Rescheduled sessions this month
@@ -1563,7 +1631,7 @@ function renderAnalytics() {
                 const time = sd.time || slot.time;
                 const effectiveDuration = sd.duration || s.duration;
                 const rev = effectiveDuration * s.hourlyRate;
-                sessionList.push({ date: effectiveDate, time, subject, rev, status: 'pending' });
+                sessionList.push({ date: effectiveDate, time, subject, rev, status: 'pending', payKey: key });
             }
         });
 
@@ -1575,7 +1643,7 @@ function renderAnalytics() {
         const lessonListHtml = sessionList.length > 0
             ? `<table class="lesson-table">
                 <thead><tr>
-                    <th>#</th><th>Date</th><th>Time</th><th>Subject</th><th>Amount</th><th>Status</th>
+                    <th>#</th><th>Date</th><th>Time</th><th>Subject</th><th>Amount</th><th>Status</th><th style="text-align:center;">Paid</th>
                 </tr></thead>
                 <tbody>
                 ${sessionList.map((l, i) => {
@@ -1593,6 +1661,10 @@ function renderAnalytics() {
                         : l.status === 'cancelled'
                         ? `<span style="color:#c62828;text-decoration:line-through;opacity:0.6;">$${l.rev.toFixed(2)}</span>`
                         : `<span style="color:#1976d2;opacity:0.5;">$${l.rev.toFixed(2)}</span>`;
+                    const isPaid = l.payKey && paymentRecords[l.payKey];
+                    const paidCell = l.payKey
+                        ? `<td style="text-align:center;"><input type="checkbox" ${isPaid?'checked':''} onchange="window.togglePayment('${l.payKey}',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:#388e3c;"></td>`
+                        : `<td></td>`;
                     return `<tr class="row-${l.status}">
                         <td style="color:#bbb;">${i+1}</td>
                         <td style="white-space:nowrap;">${dateStr}</td>
@@ -1600,6 +1672,7 @@ function renderAnalytics() {
                         <td>${subj}</td>
                         <td>${amt}</td>
                         <td>${statusBadge}</td>
+                        ${paidCell}
                     </tr>`;
                 }).join('')}
                 </tbody>
@@ -1661,6 +1734,10 @@ function renderAnalytics() {
                     </div>${bar(sAttRate)}
                 </div>` : `<div style="font-size:11px;color:#aaa;margin-top:10px;">No sessions marked yet — click lessons in the calendar to track attendance.</div>`}
 
+                <div style="display:flex;gap:8px;margin-top:16px;margin-bottom:4px;flex-wrap:wrap;">
+                    <button onclick="window.markAllPaid(${s.id},${month},${year})" style="padding:7px 14px;font-size:12px;background:#388e3c;">✓ Payment Received</button>
+                    <button onclick="window.generateInvoice(${s.id},${month},${year})" class="secondary" style="padding:7px 14px;font-size:12px;">📄 Generate Invoice</button>
+                </div>
                 ${sectionLabel('Sessions — ' + monthName)}
                 ${lessonListHtml}
             </div>
@@ -1754,6 +1831,173 @@ window.clearAllData = async function() {
     } catch(e) {
         alert('Error: ' + e.message);
     }
+};
+
+function renderBrandSettings() {
+    const n = document.getElementById('brandName');
+    const c = document.getElementById('brandContact');
+    if (n) n.value = brandSettings.brandName || '';
+    if (c) c.value = brandSettings.contact || '';
+    const preview = document.getElementById('logoPreview');
+    const status = document.getElementById('logoStatus');
+    if (brandSettings.logoBase64 && preview) {
+        preview.innerHTML = `<img src="${brandSettings.logoBase64}" style="max-height:80px;max-width:220px;border-radius:6px;border:1px solid #e0e0e0;">`;
+        if (status) status.textContent = 'Logo uploaded';
+    } else if (preview) {
+        preview.innerHTML = '';
+        if (status) status.textContent = 'No logo uploaded';
+    }
+}
+
+window.uploadLogo = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const base64 = e.target.result;
+        const preview = document.getElementById('logoPreview');
+        const status = document.getElementById('logoStatus');
+        if (preview) preview.innerHTML = `<img src="${base64}" style="max-height:80px;max-width:220px;border-radius:6px;border:1px solid #e0e0e0;">`;
+        if (status) status.textContent = file.name;
+        brandSettings = { ...brandSettings, logoBase64: base64 };
+    };
+    reader.readAsDataURL(file);
+};
+
+window.saveBrandSettings = async function() {
+    const name = document.getElementById('brandName').value.trim();
+    const contact = document.getElementById('brandContact').value.trim();
+    const updated = { ...brandSettings, brandName: name, contact };
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('brand').doc('settings').set(updated);
+        alert('Brand settings saved!');
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+window.togglePayment = async function(payKey, checked) {
+    const updated = { ...paymentRecords, [payKey]: checked };
+    await db.collection('users').doc(currentUser.uid).collection('payment').doc('records').set({ records: updated });
+};
+
+window.markAllPaid = async function(studentId, month, year) {
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    const updated = { ...paymentRecords };
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        if (parts[0] !== String(studentId)) return;
+        const wkS = new Date(parts[1] + 'T00:00:00');
+        const rec = new Date(wkS); rec.setDate(rec.getDate() + 1 + parseInt(parts[2]));
+        if (rec.getMonth() === month && rec.getFullYear() === year) updated[key] = true;
+    });
+    Object.values(oneOffLessons).forEach(ol => {
+        const match = ol.studentId === studentId || (ol.studentId === null && ol.studentName === s.studentName);
+        if (!match) return;
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() === month && olDate.getFullYear() === year) updated[`oneoff_${ol.id}`] = true;
+    });
+    await db.collection('users').doc(currentUser.uid).collection('payment').doc('records').set({ records: updated });
+};
+
+window.generateInvoice = function(studentId, month, year) {
+    const s = students.find(st => st.id === studentId);
+    if (!s) return;
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const invNum = (brandSettings.invoiceCounter || 0) + 1;
+    const invoiceId = `INV-${year}-${String(invNum).padStart(3, '0')}`;
+    const todayStr = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+    const biz = brandSettings.brandName || 'Tuition Services';
+    const contact = brandSettings.contact || '';
+    const logo = brandSettings.logoBase64 ? `<img src="${brandSettings.logoBase64}" style="max-height:72px;max-width:200px;object-fit:contain;">` : `<div style="font-size:26px;font-weight:800;color:#1976d2;">${biz}</div>`;
+
+    // Gather sessions for this student this month
+    const rows = [];
+    Object.entries(attendanceRecords).forEach(([key, status]) => {
+        const parts = key.split('_');
+        if (parts[0] !== String(studentId)) return;
+        const wkS = new Date(parts[1] + 'T00:00:00');
+        const rec = new Date(wkS); rec.setDate(rec.getDate() + 1 + parseInt(parts[2]));
+        if (rec.getMonth() !== month || rec.getFullYear() !== year) return;
+        const sch = s.schedule.find(sc => sc.day === parseInt(parts[2]));
+        if (!sch) return;
+        const sd = sessionData[key] || {};
+        const dur = sd.duration || s.duration;
+        const rev = dur * s.hourlyRate;
+        const paid = !!paymentRecords[key];
+        rows.push({ date: toLocalDateKey(rec), time: sd.time || sch.time, subject: sd.subject || sch.subject || s.subject, dur, rev, status, paid });
+    });
+    Object.values(oneOffLessons).forEach(ol => {
+        const match = ol.studentId === s.id || (ol.studentId === null && ol.studentName === s.studentName);
+        if (!match) return;
+        const olDate = new Date(ol.dateKey + 'T00:00:00');
+        if (olDate.getMonth() !== month || olDate.getFullYear() !== year) return;
+        const rev = ol.duration * ol.hourlyRate;
+        const paid = !!paymentRecords[`oneoff_${ol.id}`];
+        rows.push({ date: ol.dateKey, time: ol.time, subject: ol.subject + ' (ad-hoc)', dur: ol.duration, rev, status: ol.status, paid });
+    });
+    rows.sort((a, b) => a.date > b.date ? 1 : a.date < b.date ? -1 : 0);
+
+    const totalAmt = rows.filter(r => r.status === 'attended').reduce((s, r) => s + r.rev, 0);
+    const statusLabel = st => st === 'attended' ? '<span style="color:#388e3c;font-weight:600;">✓ Attended</span>' : st === 'cancelled' ? '<span style="color:#c62828;">✗ Cancelled</span>' : '<span style="color:#1976d2;opacity:0.7;">⏳ Pending</span>';
+    const amtCell = r => r.status === 'attended' ? `<span style="color:#388e3c;font-weight:600;">$${r.rev.toFixed(2)}</span>` : r.status === 'cancelled' ? `<span style="color:#c62828;text-decoration:line-through;opacity:0.6;">$${r.rev.toFixed(2)}</span>` : `<span style="color:#aaa;">$${r.rev.toFixed(2)}</span>`;
+
+    const tableRows = rows.map((r, i) => {
+        const d = new Date(r.date + 'T00:00:00');
+        const dayN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+        const ds = `${d.getDate()} ${d.toLocaleString('default',{month:'short'})} ${dayN}`;
+        return `<tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:9px 10px;color:#999;">${i+1}</td>
+            <td style="padding:9px 10px;white-space:nowrap;">${ds}</td>
+            <td style="padding:9px 10px;color:#666;">${r.time}</td>
+            <td style="padding:9px 10px;">${r.subject}</td>
+            <td style="padding:9px 10px;">${r.dur}h</td>
+            <td style="padding:9px 10px;">$${s.hourlyRate}/hr</td>
+            <td style="padding:9px 10px;">${amtCell(r)}</td>
+            <td style="padding:9px 10px;">${statusLabel(r.status)}</td>
+            <td style="padding:9px 10px;text-align:center;">${r.paid ? '✅' : '—'}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${invoiceId}</title>
+    <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#333;margin:0;padding:40px;}
+        table{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px;}
+        th{background:#f5f5f5;padding:9px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#888;font-weight:600;}
+        .no-print{text-align:center;margin-top:32px;}
+        @media print{.no-print{display:none}body{padding:20px}}
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;flex-wrap:wrap;gap:16px;">
+        <div>${logo}${brandSettings.brandName?`<div style="font-size:13px;color:#666;margin-top:6px;">${brandSettings.brandName}</div>`:''}${contact?`<div style="font-size:12px;color:#999;margin-top:3px;">${contact}</div>`:''}</div>
+        <div style="text-align:right;">
+            <div style="font-size:28px;font-weight:700;color:#1976d2;letter-spacing:2px;">INVOICE</div>
+            <div style="font-size:14px;font-weight:600;margin-top:6px;">${invoiceId}</div>
+            <div style="font-size:13px;color:#666;margin-top:4px;">Date: ${todayStr}</div>
+        </div>
+    </div>
+    <div style="background:#f9f9f9;border-radius:8px;padding:16px 20px;margin-bottom:28px;display:flex;gap:40px;flex-wrap:wrap;">
+        <div><div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Bill To</div>
+            <div style="font-size:16px;font-weight:700;">${s.studentName}</div>
+            <div style="font-size:12px;color:#666;margin-top:2px;">Student ID: ${s.studentCode || '—'}</div></div>
+        <div><div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Period</div>
+            <div style="font-size:15px;font-weight:600;">${monthName} ${year}</div>
+            <div style="font-size:12px;color:#666;margin-top:2px;">${s.subject} · ${s.duration}h @ $${s.hourlyRate}/hr</div></div>
+    </div>
+    <table><thead><tr><th>#</th><th>Date</th><th>Time</th><th>Subject</th><th>Duration</th><th>Rate</th><th>Amount</th><th>Status</th><th>Paid</th></tr></thead>
+    <tbody>${tableRows}</tbody></table>
+    <div style="margin-top:24px;text-align:right;padding-right:10px;">
+        <div style="font-size:12px;color:#aaa;margin-bottom:4px;">TOTAL AMOUNT DUE (attended sessions)</div>
+        <div style="font-size:26px;font-weight:700;color:#1976d2;">$${totalAmt.toFixed(2)}</div>
+    </div>
+    <div class="no-print"><button onclick="window.print()" style="padding:12px 32px;background:#1976d2;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-right:12px;">Print / Save as PDF</button>
+    <button onclick="window.close()" style="padding:12px 24px;background:#e0e0e0;color:#333;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Close</button></div>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(html);
+    win.document.close();
+    // Increment invoice counter
+    db.collection('users').doc(currentUser.uid).collection('brand').doc('settings').set({ ...brandSettings, invoiceCounter: invNum });
 };
 
 window.switchTab = function(tab) {
