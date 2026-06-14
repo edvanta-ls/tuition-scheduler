@@ -110,6 +110,30 @@
         .lesson-table tr.row-pending td { background:#f5f8ff; color:#666; }
         .archived-badge { display:inline-block; background:#fff3e0; color:#e65100; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:600; vertical-align:middle; }
         .archived-card { opacity:0.75; border-color:#ffe0b2 !important; }
+        .view-toggle { display:flex; gap:6px; justify-content:center; margin-bottom:10px; }
+        .view-toggle button { background:#e0e0e0; color:#666; padding:6px 16px; font-size:12px; }
+        .view-toggle button.active { background:#C9911A; color:white; }
+        .day-card { background:#FDF5E0; border:1px solid #E8C87A; border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+        .day-card.tg-today { border-color:#C9911A; box-shadow:0 0 0 1px #C9911A; }
+        .day-card-header { font-size:12px; font-weight:700; color:#A87815; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid #E8C87A; }
+        .day-card-empty { font-size:13px; color:#bbb; padding:4px 0 12px; }
+        .day-card-lesson { padding:8px 0; border-bottom:1px solid rgba(232,200,122,0.5); cursor:pointer; }
+        .day-card-lesson:last-of-type { border-bottom:none; }
+        .day-card-lesson.attended .dcl-title { color:#2e7d32; }
+        .day-card-lesson.cancelled .dcl-title { color:#c62828; text-decoration:line-through; }
+        .dcl-title { font-size:14px; font-weight:600; color:#333; }
+        .dcl-time { font-size:12px; color:#999; margin-top:2px; }
+        .day-card-add { width:100%; background:white; color:#A87815; border:1px solid #E8C87A; margin-top:4px; font-weight:600; }
+        .day-card-add:hover { background:#FDF5E0; }
+        .bottom-nav { display:none; }
+        @media (max-width: 768px) {
+            .tab-btn { display:none; }
+            body { padding-bottom: 64px; }
+            .bottom-nav { display:flex; position:fixed; left:0; right:0; bottom:0; background:white; border-top:1px solid #e0e0e0; z-index:500; padding-bottom: env(safe-area-inset-bottom); }
+            .bn-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none; cursor:pointer; padding:8px 0 6px; font-size:11px; color:#999; }
+            .bn-item .bn-icon { font-size:20px; }
+            .bn-item.active { color:#C9911A; font-weight:700; }
+        }
     </style>
 </head>
 <body>
@@ -145,10 +169,10 @@
     <span id="teamBannerText">Viewing as team member</span>
 </div>
     <div class="tabs">
-        <button class="tab-btn active" onclick="window.switchTab('students')">My Students</button>
-        <button class="tab-btn" onclick="window.switchTab('calendar')">Calendar</button>
-        <button class="tab-btn" onclick="window.switchTab('analytics')">Analytics</button>
-        <button class="tab-btn" onclick="window.switchTab('settings')">Settings</button>
+        <button class="tab-btn active" data-tab="students" onclick="window.switchTab('students')">My Students</button>
+        <button class="tab-btn" data-tab="calendar" onclick="window.switchTab('calendar')">Calendar</button>
+        <button class="tab-btn" data-tab="analytics" onclick="window.switchTab('analytics')">Analytics</button>
+        <button class="tab-btn" data-tab="settings" onclick="window.switchTab('settings')">Settings</button>
         <div style="flex:1;"></div>
         <div style="position:relative;display:flex;align-items:center;">
             <input type="text" id="searchInput" placeholder="🔍 Search student…" oninput="window.searchStudents(this.value)" onfocus="document.getElementById('searchDropdown').style.display='block'" onblur="setTimeout(()=>document.getElementById('searchDropdown').style.display='none',200)"
@@ -220,8 +244,13 @@
         <div class="week-info" id="weekDisplay">Loading...</div>
         <button class="secondary" onclick="window.nextWeek()">Next →</button>
     </div>
+    <div class="view-toggle">
+        <button id="gridViewBtn" class="active" onclick="window.setCalendarView('grid')">Grid</button>
+        <button id="listViewBtn" onclick="window.setCalendarView('list')">List</button>
+    </div>
     <p style="font-size: 12px; color: #999; text-align: center; margin-bottom: 8px;">Click lesson to mark: <strong style="color:#C9911A">Blue</strong> = Pending · <strong style="color:#388e3c">Green</strong> = Attended · <strong style="color:#c62828">Red</strong> = Cancelled</p>
     <div id="calendarGrid"></div>
+    <div id="calendarListView" style="display:none;"></div>
 </div>
 
 <div id="analytics" class="tab-content">
@@ -394,6 +423,7 @@ let attendanceRecords = {};
 let sessionData = {};
 let oneOffLessons = {};
 let currentWeekStart = getMonday(new Date());
+let calendarViewMode = 'grid';
 let analyticsMonth = new Date().getMonth();
 let analyticsYear = new Date().getFullYear();
 let _archiveStudentId = null;
@@ -843,19 +873,8 @@ window.deleteStudent = async function(id) {
     }
 };
 
-function renderCalendar() {
-    updateCalendarRevenueSummary();
-
-    const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    document.getElementById('weekDisplay').textContent = `${currentWeekStart.toLocaleDateString()} – ${weekEnd.toLocaleDateString()}`;
-
+function computeWeekLessons() {
     const weekStartKey = currentWeekStart.toISOString().split('T')[0];
-    const START_HOUR = 8;
-    const END_HOUR = 24;
-    const HOUR_PX = 60;
-    const TOTAL_HOURS = END_HOUR - START_HOUR;
-
     const weekLessons = Array(7).fill(null).map(() => []);
     students.forEach(s => {
         s.schedule.forEach(slot => {
@@ -902,6 +921,85 @@ function renderCalendar() {
             });
         }
     });
+    return { weekLessons, weekStartKey };
+}
+
+window.setCalendarView = function(mode) {
+    calendarViewMode = mode;
+    document.getElementById('gridViewBtn').classList.toggle('active', mode === 'grid');
+    document.getElementById('listViewBtn').classList.toggle('active', mode === 'list');
+    document.getElementById('calendarGrid').style.display = mode === 'grid' ? '' : 'none';
+    document.getElementById('calendarListView').style.display = mode === 'list' ? '' : 'none';
+    if (mode === 'list') renderCalendarList();
+};
+
+function renderCalendarList() {
+    const { weekLessons, weekStartKey } = computeWeekLessons();
+    const jsDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(currentWeekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        const isToday = dayDate.toDateString() === new Date().toDateString();
+        const dayDateKey = toLocalDateKey(dayDate);
+
+        const enriched = weekLessons[i].map(lesson => {
+            let displayTime, displaySubject, onclick;
+            if (lesson.isOneOff) {
+                displayTime = lesson.time;
+                displaySubject = lesson.subject;
+                onclick = `window.openOneOffEditModal('${lesson.oneOffId}')`;
+            } else {
+                const key = `${lesson.studentId}_${weekStartKey}_${lesson.origDayIndex}`;
+                const ovr = sessionData[key];
+                displaySubject = (ovr && ovr.subject) ? ovr.subject : lesson.subject;
+                displayTime = (ovr && ovr.time) ? ovr.time : lesson.time;
+                onclick = `window.openLessonModal(${lesson.studentId},'${weekStartKey}',${lesson.origDayIndex})`;
+            }
+            return { ...lesson, displayTime, displaySubject, onclick };
+        }).sort((a, b) => a.displayTime.localeCompare(b.displayTime));
+
+        let lessonsHtml = '';
+        enriched.forEach(lesson => {
+            const status = lesson.status;
+            const cls = status === 'attended' ? 'attended' : status === 'cancelled' ? 'cancelled' : '';
+            const icon = status === 'attended' ? '✓' : status === 'cancelled' ? '✗' : '⚠';
+            const endTime = calcEndTime(lesson.displayTime, lesson.duration);
+            lessonsHtml += `<div class="day-card-lesson ${cls}" onclick="${lesson.onclick}">
+                <div class="dcl-title">${icon} ${lesson.studentName}${lesson.displaySubject ? ' · ' + lesson.displaySubject : ''}</div>
+                <div class="dcl-time">${lesson.displayTime}–${endTime}</div>
+            </div>`;
+        });
+
+        html += `<div class="day-card ${isToday ? 'tg-today' : ''}">
+            <div class="day-card-header">${jsDayNames[dayDate.getDay()].toUpperCase()} ${dayDate.getDate()}</div>
+            ${enriched.length === 0 ? '<div class="day-card-empty">no sessions</div>' : lessonsHtml}
+            <button class="day-card-add" onclick="window.openOneOffModal('${dayDateKey}',${i})">+ ad-hoc</button>
+        </div>`;
+    }
+
+    document.getElementById('calendarListView').innerHTML = html;
+}
+
+function renderCalendar() {
+    updateCalendarRevenueSummary();
+
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    document.getElementById('weekDisplay').textContent = `${currentWeekStart.toLocaleDateString()} – ${weekEnd.toLocaleDateString()}`;
+
+    const START_HOUR = 8;
+    const END_HOUR = 24;
+    const HOUR_PX = 60;
+    const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+    const { weekLessons, weekStartKey } = computeWeekLessons();
+
+    if (calendarViewMode === 'list') {
+        renderCalendarList();
+        return;
+    }
 
     let labelsHtml = '<div class="tg-label-header"></div>';
     for (let h = START_HOUR; h <= END_HOUR; h++) {
@@ -1450,6 +1548,12 @@ function renderAnalytics() {
         return;
     }
 
+    // Preserve which cards are currently expanded across re-renders
+    const expandedIds = new Set();
+    document.querySelectorAll('[id^="spd_"]').forEach(el => {
+        if (!el.classList.contains('collapsed')) expandedIds.add(el.id.slice(4));
+    });
+
     const today = new Date();
     const year = analyticsYear;
     const month = analyticsMonth;
@@ -1889,7 +1993,7 @@ function renderAnalytics() {
 
         const archiveDateStr = s.endDate ? new Date(s.endDate + 'T00:00:00').toLocaleDateString('en-SG',{day:'numeric',month:'short',year:'numeric'}) : '';
         html += `<div class="student-card${sIsArchived?' archived-card':''}">
-            <div id="sph_${s.id}" class="spd-toggle" onclick="window.toggleStudentCard(${s.id})">
+            <div id="sph_${s.id}" class="spd-toggle collapsed" onclick="window.toggleStudentCard(${s.id})">
                 <div>
                     <div style="font-size:16px;font-weight:700;color:${sIsArchived?'#999':'#C9911A'};">${s.studentName}${sIsArchived?` <span class="archived-badge">Archived ${archiveDateStr}</span>`:''}</div>
                     <div style="font-size:12px;color:#666;margin-top:3px;">📖 ${s.subject} &nbsp;·&nbsp; ${s.duration}h @ $${s.hourlyRate}/hr</div>
@@ -1905,7 +2009,7 @@ function renderAnalytics() {
                 </div>
             </div>
 
-            <div id="spd_${s.id}" class="spd-detail">
+            <div id="spd_${s.id}" class="spd-detail collapsed">
                 ${sIsArchived
                     ? `${sectionLabel('This week')}
                        <div style="font-size:12px;color:#e65100;background:#fff3e0;border-radius:6px;padding:8px 12px;margin-top:0;">
@@ -1953,6 +2057,14 @@ function renderAnalytics() {
     });
 
     container.innerHTML = html;
+
+    // Restore previously expanded cards
+    expandedIds.forEach(id => {
+        const detail = document.getElementById('spd_' + id);
+        const toggle = document.getElementById('sph_' + id);
+        if (detail) detail.classList.remove('collapsed');
+        if (toggle) toggle.classList.remove('collapsed');
+    });
 }
 
 window.exportToExcel = function() {
@@ -2507,15 +2619,22 @@ window.generateInvoice = function(studentId, month, year) {
 
 window.switchTab = function(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn, .bn-item').forEach(el => el.classList.remove('active'));
     document.getElementById(tab).classList.add('active');
-    event.target.classList.add('active');
+    document.querySelectorAll(`[data-tab="${tab}"]`).forEach(el => el.classList.add('active'));
     if (tab === 'calendar') renderCalendar();
     if (tab === 'analytics') renderAnalytics();
 };
 
 console.log('Script loaded successfully');
 </script>
+
+<div class="bottom-nav">
+    <button class="bn-item active" data-tab="students" onclick="window.switchTab('students')"><span class="bn-icon">👥</span>Students</button>
+    <button class="bn-item" data-tab="calendar" onclick="window.switchTab('calendar')"><span class="bn-icon">📅</span>Calendar</button>
+    <button class="bn-item" data-tab="analytics" onclick="window.switchTab('analytics')"><span class="bn-icon">📊</span>Analytics</button>
+    <button class="bn-item" data-tab="settings" onclick="window.switchTab('settings')"><span class="bn-icon">⚙️</span>Settings</button>
+</div>
 
 </body>
 </html>
