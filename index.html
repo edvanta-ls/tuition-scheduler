@@ -115,7 +115,8 @@
         .view-toggle button.active { background:#C9911A; color:white; }
         .day-card { background:#FDF5E0; border:1px solid #E8C87A; border-radius:10px; padding:14px 16px; margin-bottom:12px; }
         .day-card.tg-today { border-color:#C9911A; box-shadow:0 0 0 1px #C9911A; }
-        .day-card-header { font-size:12px; font-weight:700; color:#A87815; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid #E8C87A; }
+        .day-card-header { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:700; color:#A87815; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid #E8C87A; }
+        .day-card-revenue { color:#388e3c; font-weight:700; }
         .day-card-empty { font-size:13px; color:#bbb; padding:4px 0 12px; }
         .day-card-lesson { padding:8px 0; border-bottom:1px solid rgba(232,200,122,0.5); cursor:pointer; }
         .day-card-lesson:last-of-type { border-bottom:none; }
@@ -972,8 +973,12 @@ function renderCalendarList() {
             </div>`;
         });
 
+        const dayRevenue = weekLessons[i].reduce((sum, l) => l.status === 'cancelled' ? sum : sum + parseFloat(l.revenue), 0);
         html += `<div class="day-card ${isToday ? 'tg-today' : ''}">
-            <div class="day-card-header">${jsDayNames[dayDate.getDay()].toUpperCase()} ${dayDate.getDate()}</div>
+            <div class="day-card-header">
+                <span>${jsDayNames[dayDate.getDay()].toUpperCase()} ${dayDate.getDate()}</span>
+                ${dayRevenue > 0 ? `<span class="day-card-revenue">$${dayRevenue.toFixed(2)}</span>` : ''}
+            </div>
             ${enriched.length === 0 ? '<div class="day-card-empty">no sessions</div>' : lessonsHtml}
             <button class="day-card-add" onclick="window.openOneOffModal('${dayDateKey}',${i})">+ ad-hoc</button>
         </div>`;
